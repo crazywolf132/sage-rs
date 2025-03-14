@@ -1,4 +1,5 @@
 use anyhow::{Context, Result, anyhow};
+use git2::{BranchType, Repository};
 use std::process::Command;
 
 /// current_branch returns the current branch name
@@ -12,6 +13,22 @@ pub fn current() -> Result<String> {
     let branch_name = String::from_utf8(result?.stdout)?;
 
     Ok(branch_name.trim().to_string())
+}
+
+// switch_new switches a branch, and will create it if required
+pub fn switch_new(branch_name: &str, create: bool) -> Result<()> {
+    let repo = Repository::open(".").context("Failed to open repository")?;
+    if create {
+        // Create new branch from HEAD commit.
+        let head = repo.head().context("Failed to get HEAD reference")?;
+        let commit = head.peel_to_commit().context("Failed to convert HEAD to commit")?;
+        repo.branch(&branch_name, &commit, false).context("Failed to create new branch")?;
+    }
+    // Set HEAD to the branch.
+    repo.set_head(&format!("refs/heads/{}", branch_name)).context("Failed to set HEAD to branch")?;
+    // Checkout the branch.
+    repo.checkout_head(None).context("Failed to checkout branch")?;
+    Ok(())
 }
 
 /// switch switches a branch, and will create it if required
@@ -37,19 +54,33 @@ pub fn switch(branch_name: String, create: bool) -> Result<()> {
 
 /// list -- returns a list of the branches locally
 pub fn list() -> Result<Vec<String>> {
-    let output = Command::new("git")
-        .arg("branch")
-        .arg("--sort=-committerdate")
-        .arg("--format=%(refname:short)")
-        .output()
-        .context("failed to list branches")?;
+    let repo = Repository::open(".").context("Failed to open repository")?;
+    let mut branch_infos: Vec<(String, i64)> = Vec::new();
+    let branches = repo.branches(Some(BranchType::Local)).context("Failed to get local branches")?;
+    
+    for branch in branches {
+        let (branch, _) = branch?;
+        let branch_name = branch.name()? // Get branch name as an Option<&str>
+            .ok_or_else(|| anyhow!("Invalid UTF-8 in branch name"))?
+            .to_string();
 
-    let stdout = String::from_utf8(output.stdout)?;
-    Ok(stdout
-        .lines()
-        .map(String::from)
-        .map(|s| s.trim().to_string())
-        .collect())
+        // Retrieve the commit that the branch points to
+        let branch_ref = branch.get();
+        let commit_id = branch_ref.target()
+            .ok_or_else(|| anyhow!("Branch has no target commit"))?;
+        let commit = repo.find_commit(commit_id)
+            .context("Failed to find commit for branch")?;
+        let committer_date = commit.committer().when().seconds();
+        
+        branch_infos.push((branch_name, committer_date));
+    }
+
+    // Sort branches by descending committer date
+    branch_infos.sort_by(|a, b| b.1.cmp(&a.1));
+    
+    // Extract branch names in sorted order
+    let branch_names = branch_infos.into_iter().map(|(name, _)| name).collect();
+    Ok(branch_names)
 }
 
 /// Get a struct containing information about a branch including its upstream, ahead and behind counts
@@ -132,27 +163,42 @@ fn get_branch_tracking_info(branch: &str) -> Result<(Option<String>, usize, usiz
 /// push will push the current branch to remote
 pub fn push(branch_name: &str, force: bool) -> Result<()> {
 
-    let mut cmd = Command::new("git");
-    cmd.arg("push");
-    cmd.arg("--set-upstream");
-    cmd.arg("origin");
-    cmd.arg(branch_name);
+    // Open the repo
+    let repo = Repository::open(".")?;
+    // Look up the remote named "origin"
+    let mut remote = repo.find_remote("origin")?;
 
-    if force {
-        cmd.arg("--force-with-lease");
-    }
+    // Create the refspec "refs/heads/{branch}:refs/heads/{branch}"
+    // If force is true, add a "+" to the beginning of the refspec
+    let prefix = if force { "+" } else { "" };
+    let refspec = format!("{}refs/heads/{}:refs/heads/{}", prefix, branch_name, branch_name); 
 
-    let result = cmd.output()?;
-    if result.status.success() {
-        return Ok(());
-    }
+    // Push the branch using the refspec
+    remote.push(&[&refspec], None)?;
 
-    return Err(anyhow!("Failed to push branch"));
+    // Set the upstream branch of the local branch to the remote branch
+    let mut local_branch = repo.find_branch(branch_name, BranchType::Local)?;
+    local_branch.set_upstream(Some(&format!("origin/{}", branch_name)))?;
+
+    Ok(())
 }
-
 
 /// exists returns if a branch exists
 pub fn exists(branch_name: &str) -> bool {
     let branches = list().unwrap_or(vec![]);
     branches.iter().any(|b| b == branch_name)
+}
+
+/// set_upstream with a specific refspec
+pub fn set_upstream(refspec: &str) -> Result<()> {
+    let result = Command::new("git")
+        .arg("branch")
+        .arg("--set-upstream-to")
+        .arg(format!("origin/{}", refspec))
+        .output()?;
+
+    if result.status.success() {
+        return Ok(());
+    }
+    Ok(())
 }

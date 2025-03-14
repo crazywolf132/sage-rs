@@ -8,9 +8,9 @@ pub fn status() -> Result<()> {
         return Err(errors::GitError::NotARepository.into());
     }
 
-    // Get the full status
+    // // Get the full status
     let status = git::status::status()?;
     println!("{}", status);
-
+    
     Ok(())
 }

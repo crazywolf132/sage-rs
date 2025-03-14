@@ -1,4 +1,5 @@
-use std::{fmt::Display, process::Command};
+use std::fmt::Display;
+use git2::{Repository, StatusOptions, StatusShow, BranchType};
 use anyhow::{anyhow, Result, Context};
 
 /// Represents the current state of the git repository
@@ -673,65 +674,95 @@ impl GitStatus {
             staged_copied_unstaged_modified: filter_vec(&self.staged_copied_unstaged_modified),
         }
     }
+
+    /// Checks if the repository is clean (has no changes)
+    #[inline]
+    pub fn is_clean(&self) -> bool {
+        !self.has_changes() && self.untracked.is_empty()
+    }
+
+    /// Checks if the repository is dirty (has changes)
+    #[inline]
+    pub fn is_dirty(&self) -> bool {
+        !self.is_clean()
+    }
+
+    /// Returns just the upstream status (ahead/behind) in a concise format
+    pub fn upstream_status(&self) -> String {
+        if self.ahead_count == 0 && self.behind_count == 0 {
+            return String::new();
+        }
+        
+        let mut status = String::with_capacity(15);
+        status.push('[');
+        
+        if self.ahead_count > 0 {
+            status.push_str(&format!("↑{}", self.ahead_count));
+        }
+        
+        if self.behind_count > 0 {
+            status.push_str(&format!("↓{}", self.behind_count));
+        }
+        
+        status.push(']');
+        status
+    }
 }
 
-/// Get the current git status using porcelain=v2 format
+/// Get the current git status using git2 library
 pub fn status() -> Result<GitStatus> {
     let mut gs = GitStatus::default();
     
+    // Open the repository
+    let repo = Repository::open_from_env()
+        .context("Failed to open git repository")?;
+    
     // Get branch information
-    get_branch_info(&mut gs)?;
+    get_branch_info(&repo, &mut gs)?;
     
     // Check for stashes
-    gs.has_stash = has_stash()?;
+    gs.has_stash = has_stash(&repo)?;
     
-    // Get the detailed status - this is the main operation
-    parse_porcelain_status(&mut gs)?;
+    // Get the detailed status
+    get_status_details(&repo, &mut gs)?;
     
     Ok(gs)
 }
 
 /// Get branch information including upstream and ahead/behind counts
-fn get_branch_info(gs: &mut GitStatus) -> Result<()> {
-    // Get current branch name
-    let branch_result = Command::new("git")
-        .args(["rev-parse", "--abbrev-ref", "HEAD"])
-        .output()
-        .context("Failed to get current branch")?;
-    
-    if branch_result.status.success() {
-        gs.current_branch = String::from_utf8(branch_result.stdout)?
-            .trim()
-            .to_string();
-    }
-    
-    // Get upstream branch and ahead/behind counts
-    let upstream_result = Command::new("git")
-        .args(["rev-parse", "--abbrev-ref", "@{upstream}"])
-        .output();
-    
-    if let Ok(output) = upstream_result {
-        if output.status.success() {
-            gs.upstream_branch = Some(String::from_utf8(output.stdout)?
-                .trim()
-                .to_string());
-            
-            // Get ahead/behind counts
-            let count_result = Command::new("git")
-                .args(["rev-list", "--left-right", "--count", "@{upstream}...HEAD"])
-                .output();
-            
-            if let Ok(count_output) = count_result {
-                if count_output.status.success() {
-                    let counts = String::from_utf8(count_output.stdout)?
-                        .trim()
-                        .to_string();
-                    
-                    let parts: Vec<&str> = counts.split_whitespace().collect();
-                    if parts.len() == 2 {
-                        gs.behind_count = parts[0].parse().unwrap_or(0);
-                        gs.ahead_count = parts[1].parse().unwrap_or(0);
+fn get_branch_info(repo: &Repository, gs: &mut GitStatus) -> Result<()> {
+    // Get current branch
+    if let Ok(head) = repo.head() {
+        if head.is_branch() {
+            if let Some(name) = head.shorthand() {
+                gs.current_branch = name.to_string();
+                
+                // Get the upstream branch
+                if let Ok(local_branch) = repo.find_branch(name, BranchType::Local) {
+                    // upstream() returns Result<Branch>, not Result<Option<Branch>>
+                    if let Ok(upstream_branch) = local_branch.upstream() {
+                        // name() returns Result<Option<&str>>
+                        if let Ok(Some(upstream_name)) = upstream_branch.name() {
+                            gs.upstream_branch = Some(upstream_name.to_string());
+                            
+                            // Get ahead/behind counts
+                            let local_oid = head.target().unwrap();
+                            let upstream_oid = upstream_branch.get().target().unwrap();
+                            
+                            if let Ok((ahead, behind)) = repo.graph_ahead_behind(local_oid, upstream_oid) {
+                                gs.ahead_count = ahead;
+                                gs.behind_count = behind;
+                            }
+                        }
                     }
+                }
+            }
+        } else {
+            // Check if HEAD is detached (no branch name)
+            // git2 doesn't have is_detached() method, so we check if it's not a branch
+            if !head.is_branch() {
+                if let Some(oid) = head.target() {
+                    gs.current_branch = format!("detached@{}", oid.to_string()[..7].to_string());
                 }
             }
         }
@@ -741,188 +772,150 @@ fn get_branch_info(gs: &mut GitStatus) -> Result<()> {
 }
 
 /// Check if there are any stashes
-fn has_stash() -> Result<bool> {
-    let result = Command::new("git")
-        .args(["stash", "list"])
-        .output()
-        .context("Failed to check for stashes")?;
-    
-    if result.status.success() {
-        let output = String::from_utf8(result.stdout)?;
-        Ok(!output.trim().is_empty())
-    } else {
-        Ok(false)
+fn has_stash(repo: &Repository) -> Result<bool> {
+    // Alternative approach to check for stashes without using stash_foreach
+    // Look for the ref directly
+    match repo.find_reference("refs/stash") {
+        Ok(_) => Ok(true),  // Stash reference exists
+        Err(_) => Ok(false) // No stash reference
     }
 }
 
-/// Parse the porcelain=v2 status output
-fn parse_porcelain_status(gs: &mut GitStatus) -> Result<()> {
-    let result = Command::new("git")
-        .arg("status")
-        .arg("--porcelain=v2")
-        .arg("-uall")  // Show untracked files too
-        .output()
-        .context("Failed to execute git status command")?;
-
-    if !result.status.success() {
-        return Err(anyhow!("Failed to run git status: {}", String::from_utf8_lossy(&result.stderr)));
-    }
-
-    let stdout = String::from_utf8(result.stdout)
-        .context("Failed to parse git status output as UTF-8")?;
+/// Get detailed status information
+fn get_status_details(repo: &Repository, gs: &mut GitStatus) -> Result<()> {
+    let mut opts = StatusOptions::new();
+    opts.include_untracked(true)
+        .recurse_untracked_dirs(true)
+        .include_ignored(true)
+        .renames_head_to_index(true)  // Enable rename detection (instead of detect_rename)
+        .renames_index_to_workdir(true)
+        .show(StatusShow::IndexAndWorkdir);
     
-    let lines = stdout.lines();
-    for line in lines {
-        if line.is_empty() {
-            continue;
+    let statuses = repo.statuses(Some(&mut opts))
+        .context("Failed to get git status")?;
+    
+    for entry in statuses.iter() {
+        let path = match entry.path() {
+            Some(p) => p.to_string(),
+            None => continue,
+        };
+        
+        let status = entry.status();
+        
+        // Handle index (staged) changes
+        if status.is_index_new() {
+            if !status.is_wt_deleted() && !status.is_wt_modified() {
+                gs.staged_added.push(path.clone());
+            }
+        } else if status.is_index_modified() {
+            if !status.is_wt_modified() {
+                gs.staged_modified.push(path.clone());
+            }
+        } else if status.is_index_deleted() {
+            if !status.is_wt_modified() {
+                gs.staged_deleted.push(path.clone());
+            }
+        } else if status.is_index_renamed() {
+            if let Some(diff) = entry.head_to_index() {
+                if let Some(old_path) = diff.old_file().path() {
+                    let old_path_str = old_path.to_string_lossy().to_string();
+                    
+                    if !status.is_wt_modified() {
+                        gs.staged_renamed.push((old_path_str, path.clone()));
+                    } else {
+                        gs.staged_renamed.push((old_path_str, path.clone()));
+                        gs.staged_renamed_unstaged_modified.push(path.clone());
+                    }
+                }
+            }
+        } else if status.is_index_typechange() {
+            // Approximating "copied" with typechange - git2 doesn't have direct equivalent
+            if let Some(diff) = entry.head_to_index() {
+                if let Some(old_path) = diff.old_file().path() {
+                    let old_path_str = old_path.to_string_lossy().to_string();
+                    
+                    if !status.is_wt_modified() {
+                        gs.staged_copied.push((old_path_str, path.clone()));
+                    } else {
+                        gs.staged_copied.push((old_path_str, path.clone()));
+                        gs.staged_copied_unstaged_modified.push(path.clone());
+                    }
+                }
+            }
         }
-
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.is_empty() {
-            continue;
+        
+        // Handle combined states
+        if status.is_index_modified() && status.is_wt_modified() {
+            gs.staged_modified_unstaged_modified.push(path.clone());
+        } else if status.is_index_new() && status.is_wt_modified() {
+            gs.staged_added_unstaged_modified.push(path.clone());
+        } else if status.is_index_new() && status.is_wt_deleted() {
+            gs.staged_added_unstaged_deleted.push(path.clone());
+        } else if status.is_index_deleted() && status.is_wt_modified() {
+            gs.staged_deleted_unstaged_modified.push(path.clone());
         }
-
-        match parts[0] {
-            // Ordinary changed entries
-            "1" => {
-                if parts.len() < 9 {
-                    continue; // Skip invalid lines
-                }
-                
-                let xy = parts[1];
-                let path = parts[8];
-                
-                if xy.len() != 2 {
-                    continue;
-                }
-                
-                let x = xy.chars().next().unwrap();
-                let y = xy.chars().nth(1).unwrap();
-                
-                // Handle based on both staging area (x) and working tree (y) status
-                match (x, y) {
-                    ('M', '.') => gs.staged_modified.push(path.to_string()),
-                    ('A', '.') => gs.staged_added.push(path.to_string()),
-                    ('D', '.') => gs.staged_deleted.push(path.to_string()),
-                    ('.', 'M') => gs.unstaged_modified.push(path.to_string()),
-                    ('.', 'D') => gs.unstaged_deleted.push(path.to_string()),
-                    ('M', 'M') => gs.staged_modified_unstaged_modified.push(path.to_string()),
-                    ('A', 'M') => gs.staged_added_unstaged_modified.push(path.to_string()),
-                    ('A', 'D') => gs.staged_added_unstaged_deleted.push(path.to_string()),
-                    ('D', 'M') => gs.staged_deleted_unstaged_modified.push(path.to_string()),
-                    _ => {} // Ignore other combinations for now
-                }
-            },
-            // Renamed or copied entries
-            "2" => {
-                if parts.len() < 10 {
-                    continue; // Skip invalid lines
-                }
-                
-                let xy = parts[1];
-                let orig_path = parts[9];
-                let new_path = parts[10];
-                
-                if xy.len() != 2 {
-                    continue;
-                }
-                
-                let x = xy.chars().next().unwrap();
-                let y = xy.chars().nth(1).unwrap();
-                
-                match (x, y) {
-                    ('R', '.') => gs.staged_renamed.push((orig_path.to_string(), new_path.to_string())),
-                    ('C', '.') => gs.staged_copied.push((orig_path.to_string(), new_path.to_string())),
-                    ('R', 'M') => {
-                        gs.staged_renamed_unstaged_modified.push(new_path.to_string());
-                        gs.staged_renamed.push((orig_path.to_string(), new_path.to_string()));
-                    },
-                    ('C', 'M') => {
-                        gs.staged_copied_unstaged_modified.push(new_path.to_string());
-                        gs.staged_copied.push((orig_path.to_string(), new_path.to_string()));
-                    },
-                    _ => {} // Ignore other combinations for now
-                }
-            },
-            // Untracked files
-            "?" => {
-                if parts.len() < 2 {
-                    continue;
-                }
-                gs.untracked.push(parts[1].to_string());
-            },
-            // Ignored files
-            "!" => {
-                if parts.len() < 2 {
-                    continue;
-                }
-                gs.ignored.push(parts[1].to_string());
-            },
-            _ => {} // Skip other entries for now
+        
+        // Handle working tree (unstaged) status
+        if status.is_wt_modified() {
+            if !status.is_index_modified() && !status.is_index_new() && 
+               !status.is_index_deleted() && !status.is_index_renamed() && 
+               !status.is_index_typechange() {
+                gs.unstaged_modified.push(path.clone());
+            }
+        } else if status.is_wt_deleted() {
+            if !status.is_index_new() {
+                gs.unstaged_deleted.push(path.clone());
+            }
+        }
+        
+        // Untracked files
+        if status.is_wt_new() && !status.is_ignored() {
+            gs.untracked.push(path.clone());
+            
+            // Also note as unstaged added
+            if !gs.unstaged_added.contains(&path) {
+                gs.unstaged_added.push(path.clone());
+            }
+        }
+        
+        // Ignored files
+        if status.is_ignored() {
+            gs.ignored.push(path.clone());
         }
     }
-
+    
     Ok(())
 }
 
 /// Alternative implementation to get ahead/behind counts specifically
-/// This is a lightweight alternative to getting the full repository status
-/// when you only need ahead/behind information.
-///
-/// Returns a tuple of (ahead_count, behind_count) representing commits ahead and behind the upstream branch.
-/// If there is no upstream branch or other issues occur, returns (0, 0).
-///
-/// # Examples
-///
-/// ```
-/// use sage::git::status;
-///
-/// let (ahead, behind) = status::get_ahead_behind_counts().unwrap();
-/// println!("Your branch is {} commits ahead and {} commits behind upstream", ahead, behind);
-/// ```
 pub fn get_ahead_behind_counts() -> Result<(usize, usize)> {
-    // Check if we have an upstream branch
-    // We use a single command to avoid process overhead
-    let output = Command::new("git")
-        .args(["for-each-ref", "--format=%(upstream:short)", "$(git symbolic-ref -q HEAD)"])
-        .output()
-        .context("Failed to check for upstream branch")?;
+    let repo = Repository::open_from_env()
+        .context("Failed to open git repository")?;
     
-    if !output.status.success() || output.stdout.is_empty() {
-        // No upstream branch
-        return Ok((0, 0));
+    let head = repo.head()?;
+    if !head.is_branch() {
+        return Ok((0, 0)); // No branch, no ahead/behind
     }
     
-    // Get ahead/behind counts directly
-    let count_result = Command::new("git")
-        .args(["rev-list", "--left-right", "--count", "@{upstream}...HEAD"])
-        .output()
-        .context("Failed to get ahead/behind counts")?;
+    let branch_name = head.shorthand().unwrap_or("");
+    let branch = repo.find_branch(branch_name, BranchType::Local)?;
     
-    if !count_result.status.success() {
-        return Ok((0, 0));
+    // upstream() returns Result<Branch>, not Result<Option<Branch>>
+    let upstream = match branch.upstream() {
+        Ok(upstream) => upstream,
+        Err(_) => return Ok((0, 0)), // No upstream branch
+    };
+    
+    let head_oid = head.target().ok_or_else(|| anyhow!("HEAD is not a direct reference"))?;
+    let upstream_oid = upstream.get().target().ok_or_else(|| anyhow!("Upstream is not a direct reference"))?;
+    
+    match repo.graph_ahead_behind(head_oid, upstream_oid) {
+        Ok((ahead, behind)) => Ok((ahead, behind)),
+        Err(_) => Ok((0, 0)),
     }
-    
-    // Parse the output efficiently
-    let output_str = std::str::from_utf8(&count_result.stdout)
-        .context("Invalid UTF-8 in git output")?;
-    
-    let mut parts = output_str.trim().split_whitespace();
-    
-    // Extract the counts
-    let behind = parts.next()
-        .and_then(|s| s.parse::<usize>().ok())
-        .unwrap_or(0);
-    
-    let ahead = parts.next()
-        .and_then(|s| s.parse::<usize>().ok())
-        .unwrap_or(0);
-    
-    Ok((ahead, behind))
 }
 
 /// A lightweight version of GitStatus that only contains summary information
-/// Useful for displaying in prompts or status bars
 #[derive(Debug, Default, Clone)]
 pub struct LightweightStatus {
     pub branch_name: String,
@@ -932,6 +925,41 @@ pub struct LightweightStatus {
     pub has_unstaged_changes: bool,
     pub untracked_count: usize,
     pub has_stashes: bool,
+}
+
+impl LightweightStatus {
+    /// Checks if the repository is clean (has no changes)
+    #[inline]
+    pub fn is_clean(&self) -> bool {
+        !self.has_staged_changes && !self.has_unstaged_changes && self.untracked_count == 0
+    }
+
+    /// Checks if the repository is dirty (has changes)
+    #[inline]
+    pub fn is_dirty(&self) -> bool {
+        !self.is_clean()
+    }
+
+    /// Returns just the upstream status (ahead/behind) in a concise format
+    pub fn upstream_status(&self) -> String {
+        if self.ahead_count == 0 && self.behind_count == 0 {
+            return String::new();
+        }
+        
+        let mut status = String::with_capacity(15);
+        status.push('[');
+        
+        if self.ahead_count > 0 {
+            status.push_str(&format!("↑{}", self.ahead_count));
+        }
+        
+        if self.behind_count > 0 {
+            status.push_str(&format!("↓{}", self.behind_count));
+        }
+        
+        status.push(']');
+        status
+    }
 }
 
 impl Display for LightweightStatus {
@@ -973,38 +1001,21 @@ impl Display for LightweightStatus {
 }
 
 /// Get a lightweight status report that's more performant than the full status
-/// This is useful for status bars, prompts, or when you just need basic information
-/// 
-/// # Examples
-///
-/// ```
-/// use sage::git::status;
-/// 
-/// match status::lightweight_status() {
-///     Ok(status) => println!("Git status: {}", status),
-///     Err(e) => eprintln!("Error: {}", e),
-/// }
-/// ```
 pub fn lightweight_status() -> Result<LightweightStatus> {
     let mut status = LightweightStatus::default();
     
-    // Get branch name
-    let branch_output = Command::new("git")
-        .args(["symbolic-ref", "--short", "HEAD"])
-        .output();
+    let repo = Repository::open_from_env()
+        .context("Failed to open git repository")?;
     
-    if let Ok(output) = branch_output {
-        if output.status.success() {
-            status.branch_name = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    // Get branch name
+    if let Ok(head) = repo.head() {
+        if let Some(name) = head.shorthand() {
+            status.branch_name = name.to_string();
         } else {
-            // Maybe in detached HEAD state, get the commit hash
-            let hash_output = Command::new("git")
-                .args(["rev-parse", "--short", "HEAD"])
-                .output();
-                
-            if let Ok(hash) = hash_output {
-                if hash.status.success() {
-                    status.branch_name = format!("detached@{}", String::from_utf8_lossy(&hash.stdout).trim());
+            // Check if HEAD is detached (not pointing to a branch)
+            if !head.is_branch() {
+                if let Some(oid) = head.target() {
+                    status.branch_name = format!("detached@{}", oid.to_string()[..7].to_string());
                 }
             }
         }
@@ -1015,50 +1026,37 @@ pub fn lightweight_status() -> Result<LightweightStatus> {
     status.ahead_count = ahead;
     status.behind_count = behind;
     
-    // Check for staging area changes and untracked files
-    // Use a single porcelain command for performance
-    let status_output = Command::new("git")
-        .args(["status", "--porcelain"])
-        .output()
-        .context("Failed to get git status")?;
+    // Check for changes
+    let mut opts = StatusOptions::new();
+    opts.include_untracked(true)
+        .show(StatusShow::IndexAndWorkdir);
     
-    if status_output.status.success() {
-        let status_str = String::from_utf8_lossy(&status_output.stdout);
-        
-        for line in status_str.lines() {
-            if line.len() < 2 {
-                continue;
-            }
+    if let Ok(statuses) = repo.statuses(Some(&mut opts)) {
+        for entry in statuses.iter() {
+            let status_bits = entry.status();
             
-            let index_status = line.chars().next().unwrap();
-            let worktree_status = line.chars().nth(1).unwrap();
-            
-            // Check staged changes (index status)
-            if index_status != ' ' && index_status != '?' {
+            // Check for staged changes
+            if status_bits.is_index_new() || status_bits.is_index_modified() || 
+               status_bits.is_index_deleted() || status_bits.is_index_renamed() ||
+               status_bits.is_index_typechange() {
                 status.has_staged_changes = true;
             }
             
-            // Check unstaged changes (worktree status)
-            if worktree_status != ' ' && index_status != '?' {
+            // Check for unstaged changes
+            if status_bits.is_wt_modified() || status_bits.is_wt_deleted() || 
+               status_bits.is_wt_typechange() || status_bits.is_wt_renamed() {
                 status.has_unstaged_changes = true;
             }
             
             // Count untracked files
-            if index_status == '?' {
+            if status_bits.is_wt_new() && !status_bits.is_ignored() {
                 status.untracked_count += 1;
             }
         }
     }
     
     // Check for stashes
-    let stash_output = Command::new("git")
-        .args(["stash", "list"])
-        .output()
-        .context("Failed to check for stashes")?;
-    
-    if stash_output.status.success() {
-        status.has_stashes = !stash_output.stdout.is_empty();
-    }
+    status.has_stashes = has_stash(&repo)?;
     
     Ok(status)
 }
@@ -1068,9 +1066,6 @@ mod tests {
     use super::*;
     use std::time::Instant;
     
-    /// Test the performance of different Git status retrieval methods
-    /// This is not an automated test, but rather a performance benchmark
-    /// to run manually when needed.
     #[test]
     #[ignore] // Skip during normal test runs
     fn benchmark_status_methods() {
