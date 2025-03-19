@@ -39,11 +39,11 @@ pub fn clone(repo: &str, use_ssh: bool) -> Result<()> {
 /// stage_all is used to stage all Changes
 pub fn stage_all() -> Result<()> {
     let result = Command::new("git")
-        .arg("stage")
-        .arg("-a")
-        .arg("./...")
+        .arg("add")
+        .arg("-A")
+        .arg(".")
         .output()?;
-
+    
     if result.status.success() {
         Ok(())
     } else {
@@ -79,21 +79,39 @@ pub fn fetch_remote() -> Result<()> {
 
 /// pull will pull the latest changes from the remote
 pub fn pull(branch: &str, fast_forward: bool) -> Result<()> {
+    // First ensure we have the latest objects from remote
+    let fetch_result = Command::new("git")
+        .arg("fetch")
+        .arg("--all")
+        .arg("--prune")
+        .output()?;
+        
+    if !fetch_result.status.success() {
+        return Err(anyhow!("Failed to fetch latest changes: {}", 
+            String::from_utf8_lossy(&fetch_result.stderr)));
+    }
+    
+    // Now pull the changes
     let mut cmd = Command::new("git");
-        cmd.arg("pull");
-        cmd.arg("origin");
-        cmd.arg(branch);
+    cmd.arg("pull");
+    cmd.arg("origin");
+    cmd.arg(branch);
 
     if fast_forward {
         cmd.arg("--ff-only");
     }
+    
+    // Add some additional flags to ensure we get all changes
+    cmd.arg("--rebase=false"); // Don't rebase, just merge
+    
     let result = cmd.output()?;
 
     if result.status.success() {
         return Ok(());
     }
 
-    return Err(anyhow!("Failed to pull latest changes. {}", String::from_utf8(result.stderr)?));
+    return Err(anyhow!("Failed to pull latest changes: {}", 
+        String::from_utf8_lossy(&result.stderr)));
 }
 
 /// get the owner and repo name from the remote URL
@@ -145,5 +163,34 @@ pub fn fetch(refspec: &str) -> Result<()> {
     if result.status.success() {
         return Ok(());
     }
-    Ok(())
+    
+    // If we get here, the fetch failed, so let's return an error with details
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    Err(anyhow!("Failed to fetch from remote: {}", stderr))
+}
+
+
+/// get the diff of the repo
+pub fn diff() -> Result<String> {
+    let mut binding = Command::new("git");
+    let staged_results = binding
+        .arg("diff")
+        .arg("--cached");
+
+    // Check to see if the staged_results is empty
+    if !staged_results.output()?.stdout.is_empty() {
+        // It is not empty, so we can return the staged_results
+        let output = staged_results.output()?;
+        let stdout = String::from_utf8(output.stdout)?;
+        return Ok(stdout);
+    }
+
+    // The staged_results is empty, so we need to get the unstaged_results
+    let unstaged_results = binding
+        .arg("diff");
+
+    let output = unstaged_results.output()?;
+    let stdout = String::from_utf8(output.stdout)?;
+    Ok(stdout)
+    
 }

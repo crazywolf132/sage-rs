@@ -1,4 +1,4 @@
-use crate::{app, cli::Run, git};
+use crate::{app, cli::Run};
 use clap::Parser;
 use anyhow::Result;
 use crate::cli::completion::value_completion;

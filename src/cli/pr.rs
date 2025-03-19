@@ -8,7 +8,7 @@ use crate::app;
 #[derive(Parser, Debug)]
 pub struct PrArgs {
     #[clap(subcommand)]
-    pub command: PrCommands,
+    pub command: Option<PrCommands>,
 }
 
 /// Commands for interacting with GitHub Pull Requests
@@ -41,8 +41,9 @@ pub struct PrStatusArgs {
 impl Run for PrArgs {
     async fn run(&self) -> Result<()> {
         match &self.command {
-            PrCommands::Checkout(args) => pr_checkout(args).await,
-            PrCommands::Status(args) => pr_status(args).await,
+            Some(PrCommands::Checkout(args)) => pr_checkout(args).await,
+            Some(PrCommands::Status(args)) => pr_status(args).await,
+            None => pr_status(&PrStatusArgs { pr_number: None }).await,
         }
     }
 }

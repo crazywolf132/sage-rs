@@ -16,19 +16,33 @@ pub fn current() -> Result<String> {
     Ok(branch_name.trim().to_string())
 }
 
-// switch_new switches a branch, and will create it if required
+/// switch_new switches to a branch, and will create it if required
 pub fn switch_new(branch_name: &str, create: bool) -> Result<()> {
-    let repo = Repository::open(".").context("Failed to open repository")?;
+    let repo = Repository::open_from_env().context("Failed to open repository")?;
+    
     if create {
         // Create new branch from HEAD commit.
         let head = repo.head().context("Failed to get HEAD reference")?;
         let commit = head.peel_to_commit().context("Failed to convert HEAD to commit")?;
         repo.branch(&branch_name, &commit, false).context("Failed to create new branch")?;
     }
+    
+    // Check if the branch exists locally
+    let branch_ref = format!("refs/heads/{}", branch_name);
+    if repo.find_reference(&branch_ref).is_err() {
+        return Err(anyhow::anyhow!("Branch '{}' does not exist and create=false", branch_name));
+    }
+    
     // Set HEAD to the branch.
-    repo.set_head(&format!("refs/heads/{}", branch_name)).context("Failed to set HEAD to branch")?;
+    repo.set_head(&branch_ref).context("Failed to set HEAD to branch")?;
+    
+    // Checkout the branch with a clean forced checkout to ensure we get all changes
+    let mut checkout_opts = git2::build::CheckoutBuilder::new();
+    checkout_opts.force(); // Force checkout to ensure we get all changes
+    
     // Checkout the branch.
-    repo.checkout_head(None).context("Failed to checkout branch")?;
+    repo.checkout_head(Some(&mut checkout_opts)).context("Failed to checkout branch")?;
+    
     Ok(())
 }
 
@@ -55,7 +69,7 @@ pub fn switch(branch_name: String, create: bool) -> Result<()> {
 
 /// list -- returns a list of the branches locally
 pub fn list() -> Result<Vec<String>> {
-    let repo = Repository::open(".").context("Failed to open repository")?;
+    let repo = Repository::open_from_env().context("Failed to open repository")?;
     let mut branch_infos: Vec<(String, i64)> = Vec::new();
     let branches = repo.branches(Some(BranchType::Local)).context("Failed to get local branches")?;
     
@@ -164,7 +178,7 @@ fn get_branch_tracking_info(branch: &str) -> Result<(Option<String>, usize, usiz
 /// push will push the current branch to remote
 pub fn push(branch_name: &str, force: bool) -> Result<()> {
     // Open the repo
-    let repo = Repository::open(".")?;
+    let repo = Repository::open_from_env()?;
     
     // Create the authenticator
     let auth = GitAuthenticator::default();
