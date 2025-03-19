@@ -7,12 +7,31 @@ use anyhow::Result;
 pub struct Commit {
     /// Commit message
     message: String,
+
+    #[clap(short, long)]
+    /// Create an empty commit
+    empty: bool,
+
+    #[clap(short, long)]
+    /// Push changes to remote after committing
+    push: bool,
+
+    #[clap(short, long)]
+    /// Use ai to generate commit message
+    ai: bool,
 }
 
 impl Run for Commit {
     async fn run(&self) -> Result<()> {
         println!("Committing with message: {}", self.message);
-        app::commit::commit(self.message.to_string())?;
+
+        let mut opts = app::commit::CommitOptions::default();
+        opts.empty = self.empty;
+        opts.message = self.message.to_string();
+        opts.push = self.push;
+        opts.ai = self.ai;
+        
+        app::commit::commit(&opts).await?;
         Ok(())
     }
 }
