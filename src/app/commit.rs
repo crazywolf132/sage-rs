@@ -11,7 +11,7 @@ pub fn commit(message: String) -> Result<()> {
     // Next thing to workout is if there are files staged or not. If there is, we will commit them,
     // if not we will commit all of them.
 
-    let status = git::status::status().unwrap();
+    let status = git::status::status()?;
     println!("{}", status);
 
     if !status.has_staged_changes() {
