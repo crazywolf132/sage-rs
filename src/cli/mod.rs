@@ -1,6 +1,7 @@
 pub use crate::cli::cmd::*;
 
 use anyhow::Result;
+use crate::update;
 
 pub mod clone;
 mod cmd;
@@ -20,6 +21,11 @@ pub trait Run {
 
 impl Run for Cmd {
     async fn run(&self) -> Result<()> {
+        // Check for updates before running any command
+        if let Err(e) = update::check_for_updates().await {
+            eprintln!("Warning: Failed to check for updates: {}", e);
+        }
+
         match self {
             Cmd::Commit(cmd) => cmd.run().await,
             Cmd::Clone(cmd) => cmd.run().await,
