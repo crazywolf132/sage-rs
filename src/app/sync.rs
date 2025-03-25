@@ -1,6 +1,5 @@
 use anyhow::Result;
-use octocrab::current;
-use crate::{ai, errors, git};
+use crate::{errors, git};
 
 pub async fn sync() -> Result<()> {
     // First we need to check to see if we are in a repo

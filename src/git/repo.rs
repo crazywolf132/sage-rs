@@ -2,9 +2,7 @@ use anyhow::{anyhow, Result};
 use git2::Repository;
 use std::path::Path;
 use std::process::Command;
-use std::thread::current;
 
-use super::branch;
 
 /// is_repo returns if user is in an active repo
 pub fn is_repo() -> Result<bool> {
