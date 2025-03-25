@@ -46,8 +46,9 @@ pub fn switch_new(branch_name: &str, create: bool) -> Result<()> {
     Ok(())
 }
 
-/// switch switches a branch, and will create it if required
-pub fn switch(branch_name: String, create: bool) -> Result<()> {
+/// switch switches a branch, and will create it if required -- Returns current branch name
+pub fn switch(branch_name: &str, create: bool) -> Result<String> {
+    let current_branch = current()?;
     let mut cmd = Command::new("git");
     cmd.arg("switch");
     if create {
@@ -64,7 +65,7 @@ pub fn switch(branch_name: String, create: bool) -> Result<()> {
             String::from_utf8_lossy(&output.stderr)));
     }
 
-    Ok(())
+    Ok(current_branch)
 }
 
 /// list -- returns a list of the branches locally
@@ -228,4 +229,35 @@ pub fn set_upstream(refspec: &str) -> Result<()> {
         return Ok(());
     }
     Ok(())
+}
+
+/// merge will merge a specific branch into the current branch
+pub fn merge(branch_name: &str) -> Result<()> {
+    let result = Command::new("git")
+        .arg("merge")
+        .arg(branch_name)
+        .output()?;
+
+    if result.status.success() {
+        return Ok(());
+    }
+
+    Err(anyhow!("Failed to merge branch: {}", 
+        String::from_utf8_lossy(&result.stderr)))
+}
+
+/// rebase will rebase a specific branch onto the current branch
+pub fn rebase(branch_name: &str) -> Result<()> {
+    let result = Command::new("git")
+        .arg("rebase")
+        .arg(branch_name)
+        .arg("--autostash")
+        .output()?;
+
+    if result.status.success() {
+        return Ok(());
+    }
+
+    Err(anyhow!("Failed to rebase branch: {}", 
+        String::from_utf8_lossy(&result.stderr)))
 }

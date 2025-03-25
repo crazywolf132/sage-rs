@@ -29,7 +29,7 @@ pub fn start(name: String) -> Result<()> {
     git::repo::pull(&default_branch, true)?;
 
     // Create a new branch if it doesn't exist
-    git::branch::switch(name, true)?;
+    git::branch::switch(&name, true)?;
 
     // Restore stashed changes if we stashed them earlier
     if stashed {

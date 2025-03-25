@@ -7,6 +7,7 @@ use crate::cli::switch;
 use crate::cli::list;
 use crate::cli::completion;
 use crate::cli::pr;
+use crate::cli::sync;
 
 use clap::Parser;
 
@@ -44,6 +45,10 @@ pub enum Cmd {
     Completion(completion::CompletionArgs),
 
     /// GitHub Pull Request commands
-    Pr(pr::PrArgs)
+    Pr(pr::PrArgs),
+
+    /// Synchronize the repository with the remote
+    #[clap(alias = "s")]
+    Sync(sync::SyncArgs),
 }
 

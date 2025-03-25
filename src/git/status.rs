@@ -687,6 +687,13 @@ impl GitStatus {
         !self.is_clean()
     }
 
+    /// Checks if the local branch has diverged from its upstream branch
+    /// A branch is considered diverged when it has both ahead and behind commits
+    #[inline]
+    pub fn is_diverged(&self) -> bool {
+        self.ahead_count > 0 && self.behind_count > 0
+    }
+
     /// Returns just the upstream status (ahead/behind) in a concise format
     pub fn upstream_status(&self) -> String {
         if self.ahead_count == 0 && self.behind_count == 0 {

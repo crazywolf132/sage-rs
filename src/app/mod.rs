@@ -6,3 +6,4 @@ pub mod switch;
 pub mod list;
 pub mod pull_checkout;
 pub mod pull_status;
+pub mod sync;
