@@ -1,5 +1,7 @@
 ![Sage Banner](docs/sage.jpg)
 
+> **Note**: This is a temporary repository for the Rust remake of Sage. For the original Golang version, visit [https://github.com/crazywolf132/sage](https://github.com/crazywolf132/sage).
+
 Hey there! Welcome to Sage - your friendly neighborhood Git companion. Think of it as a smart wrapper around Git that helps you streamline your workflow.
 
 ## Why Did I Build This? 🤔
