@@ -1,6 +1,7 @@
 use anyhow::{Context, Result, anyhow};
 use git2::{BranchType, Repository};
 use std::process::Command;
+use auth_git2::GitAuthenticator;
 
 /// current_branch returns the current branch name
 pub fn current() -> Result<String> {
@@ -162,19 +163,31 @@ fn get_branch_tracking_info(branch: &str) -> Result<(Option<String>, usize, usiz
 
 /// push will push the current branch to remote
 pub fn push(branch_name: &str, force: bool) -> Result<()> {
-
     // Open the repo
     let repo = Repository::open(".")?;
+    
+    // Create the authenticator
+    let auth = GitAuthenticator::default();
+    let git_config = git2::Config::open_default()?;
+    
     // Look up the remote named "origin"
     let mut remote = repo.find_remote("origin")?;
-
+    
+    // Setup authentication callbacks
+    let mut callbacks = git2::RemoteCallbacks::new();
+    callbacks.credentials(auth.credentials(&git_config));
+    
+    // Create push options with callbacks
+    let mut push_options = git2::PushOptions::new();
+    push_options.remote_callbacks(callbacks);
+    
     // Create the refspec "refs/heads/{branch}:refs/heads/{branch}"
     // If force is true, add a "+" to the beginning of the refspec
     let prefix = if force { "+" } else { "" };
     let refspec = format!("{}refs/heads/{}:refs/heads/{}", prefix, branch_name, branch_name); 
 
-    // Push the branch using the refspec
-    remote.push(&[&refspec], None)?;
+    // Push the branch using the refspec with authentication
+    remote.push(&[&refspec], Some(&mut push_options))?;
 
     // Set the upstream branch of the local branch to the remote branch
     let mut local_branch = repo.find_branch(branch_name, BranchType::Local)?;
