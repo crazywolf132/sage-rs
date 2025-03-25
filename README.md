@@ -56,6 +56,49 @@ sage --help
 sage -v
 ```
 
+### Installation Troubleshooting 🔧
+
+If you encounter permission issues during installation, you might need to:
+
+1. Fix cargo target directory permissions:
+```bash
+# Create cargo directories if they don't exist
+mkdir -p ~/.cargo/bin
+mkdir -p ~/.cargo/registry
+
+# Fix permissions
+chmod 755 ~/.cargo
+chmod 755 ~/.cargo/bin
+chmod 755 ~/.cargo/registry
+```
+
+2. Or specify a different target directory:
+```bash
+# Set CARGO_TARGET_DIR environment variable
+export CARGO_TARGET_DIR=~/.cargo/target
+cargo install sage-rs
+```
+
+3. If you're still having issues, you can try installing with sudo (not recommended, but sometimes necessary):
+```bash
+sudo cargo install sage-rs
+```
+
+4. If you see "could not find SSL config" errors:
+```bash
+# On macOS, install certificates
+brew install openssl
+
+# On Ubuntu/Debian
+sudo apt-get install pkg-config libssl-dev
+
+# On Fedora/RHEL
+sudo dnf install openssl-devel
+
+# On Arch Linux
+sudo pacman -S openssl
+```
+
 ## Basic Usage 🛠️
 
 ### Start a new branch
