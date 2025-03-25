@@ -28,7 +28,7 @@ pub fn switch(name: String) -> Result<()> {
     }
 
     // We will now try and checkout the branch
-    git::branch::switch(name, false)?;
+    git::branch::switch_new(&name, false)?;
 
     println!("Now on branch: {}", duplicate_branch_requested_name.blue());
 

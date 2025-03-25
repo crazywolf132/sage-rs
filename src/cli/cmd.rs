@@ -9,7 +9,7 @@ use crate::cli::completion;
 
 use clap::Parser;
 
-use super::hi;
+use super::pr;
 
 #[derive(Parser, Debug)]
 pub enum Cmd {
@@ -24,6 +24,7 @@ pub enum Cmd {
     Clone(clone::CloneArgs),
 
     /// Show the status of the repository
+    #[clap(alias = "s")]
     Status(status::StatusArgs),
 
     /// Push the current branch to remote
@@ -41,7 +42,7 @@ pub enum Cmd {
     /// Generate shell completions
     Completion(completion::CompletionArgs),
 
-    /// Say hi
-    Hi(hi::HiArgs),
+    /// GitHub Pull Request commands
+    Pr(pr::PrArgs)
 }
 

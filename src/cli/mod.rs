@@ -11,7 +11,7 @@ pub mod push;
 pub mod switch;
 pub mod list;
 pub mod completion;
-pub mod hi;
+pub mod pr;
 
 pub trait Run {
     async fn run(&self) -> Result<()>;
@@ -28,7 +28,7 @@ impl Run for Cmd {
             Cmd::Switch(cmd) => cmd.run().await,
             Cmd::List(cmd) => cmd.run().await,
             Cmd::Completion(cmd) => cmd.run().await,
-            Cmd::Hi(cmd) => cmd.run().await,
+            Cmd::Pr(cmd) => cmd.run().await,
         }
     }
 }

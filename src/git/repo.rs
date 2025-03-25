@@ -36,8 +36,6 @@ pub fn clone(repo: &str, use_ssh: bool) -> Result<()> {
     Ok(())
 }
 
-
-
 /// stage_all is used to stage all Changes
 pub fn stage_all() -> Result<()> {
     let result = Command::new("git")
@@ -52,7 +50,6 @@ pub fn stage_all() -> Result<()> {
         Err(anyhow!("Failed to stage all changes"))
     }
 }
-
 
 /// default_branch returns the default branch
 pub fn default_branch() -> Result<String> {
@@ -70,7 +67,6 @@ pub fn default_branch() -> Result<String> {
 pub fn fetch_remote() -> Result<()> {
     let result = Command::new("git")
         .arg("fetch")
-        .arg("origin")
         .arg("--all")
         .arg("--prune")
         .output()?;
@@ -82,16 +78,72 @@ pub fn fetch_remote() -> Result<()> {
 }
 
 /// pull will pull the latest changes from the remote
-pub fn pull(branch: &str) -> Result<()> {
-    let result = Command::new("git")
-        .arg("pull")
-        .arg("origin")
-        .arg(branch)
-        .output()?;
+pub fn pull(branch: &str, fast_forward: bool) -> Result<()> {
+    let mut cmd = Command::new("git");
+        cmd.arg("pull");
+        cmd.arg("origin");
+        cmd.arg(branch);
+
+    if fast_forward {
+        cmd.arg("--ff-only");
+    }
+    let result = cmd.output()?;
 
     if result.status.success() {
         return Ok(());
     }
 
-    return Err(anyhow!("Failed to pull latest changes"));
+    return Err(anyhow!("Failed to pull latest changes. {}", String::from_utf8(result.stderr)?));
+}
+
+/// get the owner and repo name from the remote URL
+pub fn owner_repo() -> Result<(String, String)> {
+    let result = Command::new("git")
+        .arg("remote")
+        .arg("get-url")
+        .arg("origin")
+        .output()?;
+
+    
+    // The repo url could be SSH or it could be HTTPS
+    // We are going to handle both cases here.
+
+    let remote_url = String::from_utf8(result.stdout)?.trim().to_string();
+    if remote_url.starts_with("git@github.com:") {
+        let parts = remote_url.trim_start_matches("git@github.com:")
+            .trim_end_matches(".git")
+            .split('/')
+            .collect::<Vec<_>>();
+
+        if parts.len() >= 2 {
+            return Ok((parts[0].to_string(), parts[1].to_string()));
+        }
+    }
+
+    // If we are here... we have an HTTPS URL
+    let parts = remote_url.trim_start_matches("https://github.com/")
+        .trim_end_matches(".git")
+        .split("/")
+        .collect::<Vec<_>>();
+
+    if parts.len() >= 2 {
+        return Ok((parts[0].to_string(), parts[1].to_string()));
+    }
+
+    unreachable!("Invalid remote URL");
+}
+
+
+/// fetch with a specific refspec
+pub fn fetch(refspec: &str) -> Result<()> {
+    let result = Command::new("git")
+        .arg("fetch")
+        .arg("origin")
+        .arg(refspec)
+        .output()?;
+
+    if result.status.success() {
+        return Ok(());
+    }
+    Ok(())
 }
