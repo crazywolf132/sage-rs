@@ -13,6 +13,7 @@ clap = { version = "4.5.31", features = ["derive"] }
 clap_complete = "4.5.46"
 colored = "3.0.0"
 git2 = "0.20.0"
+hashbrown = "0.15.2"
 octocrab = "0.43.0"
 openai-api-rs = "6.0.2"
 owo-colors = "4.2.0"

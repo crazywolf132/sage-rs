@@ -6,10 +6,10 @@ use crate::cli::push;
 use crate::cli::switch;
 use crate::cli::list;
 use crate::cli::completion;
+use crate::cli::pr;
 
 use clap::Parser;
 
-use super::pr;
 
 #[derive(Parser, Debug)]
 pub enum Cmd {
@@ -18,6 +18,7 @@ pub enum Cmd {
     Start(start::StartArgs),
 
     /// Commit changes to the repository
+    #[clap(alias = "c")]
     Commit(commit::Commit),
     
     /// Clone a repository from GitHub
