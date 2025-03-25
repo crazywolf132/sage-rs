@@ -110,10 +110,25 @@ sage pr merge 42 --method squash
 ## Setting Things Up ⚙️
 
 ### Environment Variables
-- `SAGE_GITHUB_TOKEN` or `GITHUB_TOKEN`: Your GitHub token (if you have the `gh` CLI installed and authenticated, we'll use that automatically!)
+- **`SAGE_GITHUB_TOKEN`** or **`GITHUB_TOKEN`**: Your GitHub token for API access
   - Required scopes: `repo`, `read:org` (for organization repos)
-- `SAGE_CONFIG`: Where to keep your config
+  - See [GitHub Integration Guide](src/gh/README.md) for detailed setup instructions
+  - If you have the `gh` CLI installed and authenticated, Sage will automatically use that token!
+- `SAGE_CONFIG`: Where to keep your config file
 - `SAGE_OPENAI_KEY`: For AI features (totally optional)
+
+### GitHub Authentication
+If you encounter GitHub API errors like `Error: Github`, you need to set up authentication:
+
+```bash
+# Option 1: Set environment variable (add to your shell profile)
+export SAGE_GITHUB_TOKEN=your_github_token
+
+# Option 2: Use GitHub CLI 
+gh auth login  # Sage will use this automatically
+```
+
+For a complete guide on GitHub authentication, see the [GitHub Integration Guide](src/gh/README.md).
 
 ### Quick Config
 ```bash
