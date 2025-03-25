@@ -34,18 +34,23 @@ So I built Sage to make my life easier, and hopefully yours too!
 
 1. Quick Install (recommended):
 ```bash
-go install github.com/crazywolf132/sage@latest
+cargo install sage-rs
 ```
 
-2. Build from source:
+2. Install directly from GitHub:
 ```bash
-git clone https://github.com/crazywolf132/sage.git
-cd sage
-go build
-./sage -v
+cargo install --git https://github.com/crazywolf132/sage-rs.git
 ```
 
-3. Verify installation:
+3. Build from source:
+```bash
+git clone https://github.com/crazywolf132/sage-rs.git
+cd sage-rs
+cargo build --release
+./target/release/sage -v
+```
+
+4. Verify installation:
 ```bash
 sage --help
 sage -v
@@ -176,105 +181,4 @@ Available experimental features:
   - Automatic loose object cleanup
   - Daily reference packing
   - Incremental repack for optimal storage
-  ```bash
-  sage config set experimental.maintenance true
   ```
-
-These features can be enabled globally (for all Sage repositories) or locally (per repository). Use the `--local` flag with `sage config set` to enable features for just the current repository.
-
-### Local Storage
-Sage stores its data in `.git/.sage/` in your repository:
-- `undo_history.json`: Operation history for the undo system
-- `config.toml`: Local repository configuration
-These files are stored in your Git directory and are not committed to your repository.
-
-### AI Features & Privacy
-When using AI features:
-- Commit diffs, messages, and PR content are sent to OpenAI
-- Basic API key security (stored in global config only)
-- Note: Currently no filtering of sensitive data - use with caution
-- Consider reviewing diffs before using AI features
-
-## Technical Details 🔧
-
-### Error Handling
-- Operations are tracked in the undo system for recovery
-- Clear error messages help diagnose issues
-- Failed operations can be reverted using the undo system
-- State is preserved when possible during errors
-
-### Conflict Resolution
-- Automatic stash/unstash of local changes during sync
-- Branch synchronization with conflict detection
-- Clear reporting of conflicted files
-- Status tracking during conflict resolution
-
-### Edge Cases
-- Preserves uncommitted changes via stashing
-- Basic force push protection with confirmation
-- Operation history for recovery
-- Handles common Git scenarios
-
-## Where We're At 🎯
-
-Here's what's ready to roll and what we're cooking up:
-
-✅ **Ready to Rock**
-- Detailed undo system with operation tracking and selective undo
-- GitHub PR management (create, list, checkout, merge)
-- Branch synchronization with stash handling
-- AI-powered commit messages and PR content
-- Conventional commit support
-- Branch cleanup with safety checks
-- Operation history with filtering and preview
-
-🔄 **In the Workshop**
-- Enhanced conflict resolution tools
-- More PR automation features
-- Performance optimizations
-- Extended documentation
-- Submodule support
-- Advanced branch scenarios
-
-## Known Limitations
-- Currently supports GitHub only (GitLab/Bitbucket planned)
-- Large repositories might experience slower undo history loading
-- AI features require internet connectivity and OpenAI API key
-- No filtering of sensitive data in AI features
-- Basic force push protection (confirmation only)
-- Limited handling of advanced Git scenarios (submodules, detached HEAD)
-- Some edge cases require manual conflict resolution
-- PR features require GitHub token with appropriate scopes
-
-## Future Growth 🌱
-
-Even though I'm just one person maintaining this right now, I see a lot of potential for Sage:
-
-* **More Git Host Support**: Integrations with GitLab, Bitbucket, or self-hosted Git services.
-* **Interactive Conflict Resolution**: Potential for a TUI or guided conflict resolution flow.
-* **Plugin System**: Let teams extend Sage with custom commands or checks.
-* **Optional Lint/Checks**: Pre-commit hooks, code checks, or commit message style enforcement.
-
-I hope to grow this into a stable, community-driven project where developers can feel more confident in their daily workflows.
-
-## Contributing & Feedback 🤝
-
-I welcome all issues, ideas, and pull requests. If you run into a bug or have a feature request, please open an issue. This project is something I work on in my spare time, so replies may not be immediate—but I'll do my best to keep up.
-
-Some ways you can help:
-
-* **Open an Issue**: Report bugs or suggest improvements.
-* **Submit a Pull Request**: If you fix something or add a feature, I'd love to see it.
-* **Share Your Workflow**: Hearing how you use Sage (or what's blocking you) helps guide development.
-
-Check out [ROADMAP.md](ROADMAP.md) to see what we're planning!
-
-## License
-
-MIT License - See [LICENSE](LICENSE) for details.
-
----
-
-If Sage saves you from even one tedious Git task, my mission is accomplished! Star the repo if you like it, and feel free to spread the word to your fellow developers. 
-
-Happy coding! 🎉
