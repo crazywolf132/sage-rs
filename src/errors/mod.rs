@@ -3,7 +3,7 @@ use thiserror::Error;
 pub mod git;
 
 // Re-export error types for convenient access
-pub use git::GitError;
+pub use git::{GitError, GitHubError};
 
 // Generic Error type for the application
 #[derive(Debug, Error)]
