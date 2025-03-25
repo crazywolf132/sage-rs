@@ -43,7 +43,13 @@ pub async fn commit(opts: &CommitOptions) -> Result<()> {
     };
 
     // We will now create the commit.
-    let _ = git::commit::commit(&message, opts.empty);
+    git::commit::commit(&message, opts.empty)?;
+
+    if opts.push {
+        let current_branch = git::branch::current()?;
+        git::branch::push(&current_branch, false)?;
+        println!("Pushed changes to remote");
+    }
 
     Ok(())
 }
