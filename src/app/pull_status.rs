@@ -14,24 +14,50 @@ pub async fn pull_status(pr_number: Option<u64>) -> Result<()> {
 
     // We are now going to get the proper PR number, as we can utilise the GitHub API to do this
     // and see if the current branch has a valid PR associated with it
-
     let cleaned_pr_number = match &pr_number {
         Some(pr_number) => *pr_number, // Dereference to get the value
         None => {
             // We will now get the current branch name
             let current_branch = git::branch::current()?;
             // We will now use the GitHub API to get the PR number associated with the current branch
-            match pulls::get_pr_number(&owner, &repo_name, &current_branch).await? {
-                Some(number) => number, // Use the value directly
-                None => {
+            match pulls::get_pr_number(&owner, &repo_name, &current_branch).await {
+                Ok(Some(number)) => number, // Use the value directly
+                Ok(None) => {
                     // If we can't find a PR associated with the current branch, we will return an error
-                    return Err(anyhow!("No pull request associated with the current branch"));
+                    return Err(anyhow!("No pull request associated with the current branch '{}'", current_branch));
+                },
+                Err(e) => {
+                    // Handle GitHub-specific errors with more helpful messages
+                    if e.to_string().contains("401") || e.to_string().contains("authentication") {
+                        eprintln!("{}", "GitHub authentication failed!".red().bold());
+                        eprintln!("Please set a GitHub token using one of these methods:");
+                        eprintln!("  1. Set the {} environment variable", "SAGE_GITHUB_TOKEN".yellow());
+                        eprintln!("  2. Install and authenticate the GitHub CLI with {}", "gh auth login".yellow());
+                        eprintln!("\nSee {} for more details", "src/gh/README.md".underline());
+                        return Err(anyhow!("GitHub authentication failed"));
+                    }
+                    return Err(e);
                 }
             }
         }
     };
 
-    let pull_request = pulls::get_pull_request(&owner, &repo_name, cleaned_pr_number).await?;
+    // Now get the PR details
+    let pull_request = match pulls::get_pull_request(&owner, &repo_name, cleaned_pr_number).await {
+        Ok(pr) => pr,
+        Err(e) => {
+            // Handle GitHub-specific errors with more helpful messages
+            if e.to_string().contains("401") || e.to_string().contains("authentication") {
+                eprintln!("{}", "GitHub authentication failed!".red().bold());
+                eprintln!("Please set a GitHub token using one of these methods:");
+                eprintln!("  1. Set the {} environment variable", "SAGE_GITHUB_TOKEN".yellow());
+                eprintln!("  2. Install and authenticate the GitHub CLI with {}", "gh auth login".yellow());
+                eprintln!("\nSee {} for more details", "src/gh/README.md".underline());
+                return Err(anyhow!("GitHub authentication failed"));
+            }
+            return Err(e);
+        }
+    };
 
     println!("{} #{}: {}", "Pull Request".sage(), cleaned_pr_number, pull_request.title.unwrap().to_string().bright_white().bold());
     println!("{}", &pull_request.html_url.unwrap().to_string().url());

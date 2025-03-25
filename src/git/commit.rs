@@ -58,12 +58,18 @@ pub fn is_clean() -> Result<bool> {
 }
 
 /// commit creates a new commit with message
-pub fn commit(message: String) -> Result<()> {
-    let res = Command::new("git")
-        .arg("commit")
-        .arg("-m")
-        .arg(message)
-        .output()?;
+pub fn commit(message: &str, empty: bool) -> Result<()> {
+    let mut cmd = Command::new("git");
+
+    cmd.arg("commit");
+    cmd.arg("-m");
+    cmd.arg(message);
+
+    if empty {
+        cmd.arg("--allow-empty");
+    }
+
+    let res = cmd.output()?;
 
     if res.status.success() {
         return Ok(());
