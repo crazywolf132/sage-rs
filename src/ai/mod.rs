@@ -1,6 +1,7 @@
 use std::env;
 use anyhow::{Result, Context, anyhow};
 use openai_api_rs::v1::{api::OpenAIClient, chat_completion::{self, ChatCompletionRequest}, common::GPT4_O};
+pub mod commit;
 
 /// Asks the AI with a prompt
 pub async fn ask(prompt: &str) -> Result<String> {
