@@ -1,0 +1,28 @@
+[package]
+name = "sage"
+version = "0.1.0"
+edition = "2021"
+description = "A Git companion tool with AI capabilities"
+authors = ["Brayden Moon"]
+readme = "README.md"
+
+[dependencies]
+anyhow = "1.0.96"
+clap = { version = "4.5.31", features = ["derive"] }
+clap_complete = "4.5.46"
+colored = "3.0.0"
+git2 = "0.18.2"
+octocrab = "0.43.0"
+openai-api-rs = "6.0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0.12"
+tokio = { version = "1.36", features = ["full"] }
+
+[lib]
+name = "sage"
+path = "src/lib.rs"
+
+[[bin]]
+name = "sage"
+path = "src/main.rs"
