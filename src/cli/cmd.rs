@@ -187,6 +187,27 @@ EXAMPLES:
     Pr(pr::PrArgs),
 
     /// Synchronize the repository with the remote
+    #[clap(long_about = "Synchronizes your current branch with the default branch (main/master) while preserving your changes.
+This command performs several git operations automatically:
+
+1. Verifies you're in a git repository
+2. Fetches the latest changes from the remote repository
+3. Temporarily stashes any uncommitted changes
+4. Switches to the default branch (usually main or master)
+5. Updates the default branch with latest changes (git pull)
+6. Switches back to your original branch
+7. Intelligently updates your branch with changes from the default branch:
+   - If your branch has diverged (both ahead and behind), it rebases your changes
+   - Otherwise, it performs a standard merge
+8. Restores any stashed changes
+9. Pushes your updated branch to the remote
+
+This workflow ensures your branch stays up-to-date with the latest changes from the default branch,
+reducing the likelihood of complex merge conflicts later. It's particularly useful for long-lived
+feature branches that need to incorporate ongoing changes from the main codebase.
+
+EXAMPLES:
+  sage sync")]
     Sync(sync::SyncArgs),
 }
 
