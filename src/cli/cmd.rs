@@ -165,7 +165,41 @@ EXAMPLES:
   sage l")]
     List(list::ListArgs),
     
-    /// Generate shell completions
+    /// Generate shell completions for Bash, Zsh, or Fish
+    #[clap(long_about = "Generates shell completion scripts that enable tab-completion for sage commands and arguments.
+This command outputs completion scripts to stdout, which you can redirect to the appropriate location for your shell:
+
+1. Generates a completion script for the specified shell (Bash, Zsh, or Fish)
+2. Outputs the script to stdout, which you can redirect to a file
+3. Once installed, provides intelligent tab completion for all sage commands, subcommands, and options
+
+Shell completions significantly improve your CLI experience by:
+- Reducing typing and preventing typos
+- Showing available commands and options as you type
+- Displaying parameter hints and possible values
+
+INSTALLATION INSTRUCTIONS:
+
+Bash:
+  sage completion bash > ~/.bash_completion.d/sage
+  # Add to ~/.bashrc if not already sourcing completion directory:
+  # source ~/.bash_completion.d/sage
+
+Zsh:
+  # Create directory if it doesn't exist
+  mkdir -p ~/.zsh/completions
+  sage completion zsh > ~/.zsh/completions/_sage
+  # Add to ~/.zshrc if not already in fpath:
+  # fpath=(~/.zsh/completions $fpath)
+  # autoload -U compinit && compinit
+
+Fish:
+  sage completion fish > ~/.config/fish/completions/sage.fish
+
+EXAMPLES:
+  sage completion bash
+  sage completion zsh
+  sage completion fish")]
     Completion(completion::CompletionArgs),
 
     /// GitHub Pull Request commands
