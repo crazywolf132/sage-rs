@@ -121,7 +121,24 @@ EXAMPLES:
     Push(push::PushArgs),
 
     /// Switch to a different branch
-    #[clap(alias = "sw")]
+    #[clap(alias = "sw", long_about = "Switches to an existing branch with validation checks to prevent common errors.
+This command performs several operations to ensure a safe branch switch:
+
+1. Verifies you're in a git repository
+2. Checks if the requested branch exists before attempting to switch
+3. Prevents switching to the branch you're already on
+4. Handles remote branch references (origin/branch-name) automatically
+5. Performs a clean checkout to ensure all files are updated
+
+The command accepts both local branch names and remote branch references (e.g., 'origin/feature').
+When a remote branch reference is provided, it automatically switches to the corresponding local branch.
+If no branch name is provided, it defaults to switching to the 'main' branch.
+
+EXAMPLES:
+  sage switch feature-branch
+  sage switch origin/feature-branch
+  sage sw hotfix/issue-123
+  sage switch          # Switches to main branch")]
     Switch(switch::SwitchArgs),
 
     /// List all branches
