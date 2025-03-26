@@ -141,8 +141,28 @@ EXAMPLES:
   sage switch          # Switches to main branch")]
     Switch(switch::SwitchArgs),
 
-    /// List all branches
-    #[clap(alias = "l")]
+    /// List all branches in the repository with status information
+    #[clap(alias = "l", long_about = "Displays a comprehensive list of all local branches in the repository with detailed status information:
+
+1. Verifies you're in a git repository
+2. Lists all local branches sorted by most recent commit date
+3. Clearly marks the current branch with an asterisk (*)
+4. Shows tracking relationships between local and remote branches
+5. Displays ahead/behind commit counts with intuitive arrows (↑ for ahead, ↓ for behind)
+6. Uses color coding to indicate branch status:
+   - Current branch: green
+   - Branches with unpushed commits: cyan
+   - Branches behind remote: magenta
+   - Diverged branches (both ahead and behind): yellow
+   - Other branches: blue
+
+This command provides a quick overview of all your branches and their synchronization status
+with remote branches, helping you understand which branches need attention (pushing, pulling,
+or resolving divergence).
+
+EXAMPLES:
+  sage list
+  sage l")]
     List(list::ListArgs),
     
     /// Generate shell completions
