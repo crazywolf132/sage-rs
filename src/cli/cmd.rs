@@ -169,6 +169,21 @@ EXAMPLES:
     Completion(completion::CompletionArgs),
 
     /// GitHub Pull Request commands
+    #[clap(long_about = "Provides commands for interacting with GitHub Pull Requests, allowing you to:
+
+1. Checkout pull requests locally for review and testing
+2. View detailed information about pull requests including status, description, and CI checks
+3. Seamlessly integrate GitHub workflows into your local development process
+
+The PR commands automatically handle authentication with GitHub using either a SAGE_GITHUB_TOKEN
+environment variable or the GitHub CLI if installed. They provide a streamlined interface for
+common PR operations that would otherwise require multiple manual steps.
+
+EXAMPLES:
+  sage pr checkout 123                  # Checkout PR #123 to a local branch
+  sage pr checkout 123 feature/test     # Checkout PR #123 to a specific branch name
+  sage pr status                        # Show status of PR associated with current branch
+  sage pr status 456                    # Show status of PR #456")]
     Pr(pr::PrArgs),
 
     /// Synchronize the repository with the remote
