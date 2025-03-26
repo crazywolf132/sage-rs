@@ -77,7 +77,24 @@ EXAMPLES:
     Clone(clone::CloneArgs),
 
     /// Show the status of the repository
-    #[clap(alias = "s")]
+    #[clap(alias = "s", long_about = "Displays a comprehensive view of your repository's current state, showing:
+
+1. Verifies you're in a git repository
+2. Shows your current branch name and its relationship to the remote
+3. Displays ahead/behind commit counts relative to the upstream branch
+4. Indicates if you have stashed changes
+5. Lists all staged changes (added, modified, deleted, renamed files)
+6. Lists all unstaged changes in your working directory
+7. Shows untracked files
+8. Provides clear visual indicators for different types of changes
+
+This command gives you a complete picture of your repository's state in a well-formatted,
+easy-to-read display that helps you understand exactly what changes exist and where they are
+in the git workflow (staged, unstaged, or untracked).
+
+EXAMPLES:
+  sage status
+  sage s")]
     Status(status::StatusArgs),
 
     /// Push the current branch to remote
