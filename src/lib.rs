@@ -1,11 +1,12 @@
+pub mod ai;
 pub mod app;
 pub mod cli;
-pub mod errors;
-pub mod git;
-pub mod gh;
-pub mod ai;
-pub mod ui;
 pub mod config;
+pub mod errors;
+pub mod gh;
+pub mod git;
+pub mod tui;
+pub mod ui;
 pub mod update;
 
 // Re-export common types for easier access

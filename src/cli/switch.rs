@@ -31,7 +31,7 @@ Branch name completion is provided to help you select from existing branches."
 
 impl Run for SwitchArgs {
     async fn run(&self) -> Result<()> {
-        app::switch::switch(self.name.clone().unwrap_or("main".to_string()))?;
+        app::switch::switch(self.name.clone())?;
         Ok(())
     }
 }
