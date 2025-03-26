@@ -12,7 +12,7 @@ pub struct SwitchArgs {
 
 impl Run for SwitchArgs {
     async fn run(&self) -> Result<()> {
-        app::switch::switch(self.name.clone().unwrap_or("main".to_string()))?;
+        app::switch::switch(self.name.clone())?;
         Ok(())
     }
 }
