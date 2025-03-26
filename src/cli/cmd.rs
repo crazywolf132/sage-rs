@@ -60,6 +60,20 @@ EXAMPLES:
     Commit(commit::Commit),
     
     /// Clone a repository from GitHub
+    #[clap(long_about = "Clones a GitHub repository using a simplified syntax. This command:
+
+1. Validates the repository name format (owner/repo)
+2. Checks if the target directory already exists to prevent overwriting
+3. Formats the appropriate GitHub URL based on your protocol preference
+4. Clones the repository into a directory named after the repo
+
+The command accepts repositories in the format 'owner/repo' and automatically
+constructs the proper GitHub URL, eliminating the need to type the full URL.
+You can choose between HTTPS (default) or SSH protocols with the --ssh flag.
+
+EXAMPLES:
+  sage clone octocat/Hello-World
+  sage clone rust-lang/rust --ssh")]
     Clone(clone::CloneArgs),
 
     /// Show the status of the repository
