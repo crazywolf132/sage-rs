@@ -98,7 +98,26 @@ EXAMPLES:
     Status(status::StatusArgs),
 
     /// Push the current branch to remote
-    #[clap(alias = "p")]
+    #[clap(alias = "p", long_about = "Pushes your current branch to the remote repository with proper tracking setup.
+This command streamlines the git push workflow by:
+
+1. Verifying you're in a git repository
+2. Identifying your current branch
+3. Pushing the branch to the remote repository (origin)
+4. Automatically setting up tracking between local and remote branches
+5. Providing clear feedback on successful operations
+
+The command handles authentication automatically and ensures proper upstream tracking
+is established, which simplifies subsequent pull and push operations.
+
+When used with the --force flag, it performs a force push, which can overwrite remote
+history. This should be used with caution, but is useful in specific scenarios like
+updating a feature branch after rebasing.
+
+EXAMPLES:
+  sage push              # Push current branch to remote
+  sage push --force      # Force push current branch to remote
+  sage p                 # Using the alias")]
     Push(push::PushArgs),
 
     /// Switch to a different branch
