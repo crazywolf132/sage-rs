@@ -35,8 +35,28 @@ EXAMPLES:
   sage start bugfix/issue-123 --parent release/v2.0")]
     Start(start::StartArgs),
 
-    /// Commit changes to the repository
-    #[clap(alias = "c")]
+    /// Commit changes to the repository with optional AI-generated messages and push capability
+    #[clap(alias = "c", long_about = "Creates a commit with your changes and optionally pushes to the remote repository.
+This command streamlines the git commit workflow by:
+
+1. Verifying you're in a git repository
+2. Checking if there are changes to commit
+3. Automatically staging all changes if nothing is staged
+4. Creating a commit with your message
+5. Optionally pushing changes to the remote repository
+
+When used with the --ai flag, it analyzes your changes and generates a descriptive
+commit message following the Conventional Commits specification, which helps maintain
+a standardized commit history.
+
+The --empty flag allows creating commits with no changes, which can be useful for
+triggering CI/CD pipelines or marking specific points in history.
+
+EXAMPLES:
+  sage commit \"fix: resolve login issue\"
+  sage commit \"update documentation\" --push
+  sage commit \"empty commit for CI trigger\" --empty
+  sage commit \"initial commit\" --ai")]
     Commit(commit::Commit),
     
     /// Clone a repository from GitHub
