@@ -1,14 +1,20 @@
 use anyhow::{anyhow, Result};
-use crate::{errors, git};
+use crate::{errors, git, tui};
 use colored::Colorize;
 
-pub fn switch(name: String) -> Result<()> {
+pub fn switch(name: Option<String>) -> Result<()> {
     // Check to ensure we are in a repo first.
     if !git::repo::is_repo().unwrap() {
         return Err(errors::GitError::NotARepository.into());
     }
 
-    let mut duplicate_branch_requested_name = name.clone(); 
+    // If no branch name is provided, show the TUI selector
+    let branch_name = match name {
+        Some(name) => name,
+        None => tui::branch::select_branch()?,
+    };
+
+    let mut duplicate_branch_requested_name = branch_name.clone(); 
     if duplicate_branch_requested_name.starts_with("origin/") {
         duplicate_branch_requested_name = duplicate_branch_requested_name.replacen("origin/", "", 1);
     }
@@ -28,7 +34,7 @@ pub fn switch(name: String) -> Result<()> {
     }
 
     // We will now try and checkout the branch
-    git::branch::switch_new(&name, false)?;
+    git::branch::switch_new(&branch_name, false)?;
 
     println!("Now on branch: {}", duplicate_branch_requested_name.blue());
 
