@@ -16,14 +16,23 @@ pub async fn sync() -> Result<()> {
     // We will now stash the users changes.
     git::stash::stash_changes()?;
 
+    let current_branch = git::branch::current()?;
+
     // We will get the default branch name,
     let default_branch = git::repo::default_branch()?;
 
-    // We will now switch to the default branch.
-    let current_branch = git::branch::switch(&default_branch, false)?;
+    // We will now switch to the default branch. Only if it is not the current branch.
+    if current_branch != default_branch {
+        git::branch::switch(&default_branch, false)?;
+    }
 
     // We will now pull the latest changes.
     git::repo::pull(&default_branch, true)?;
+
+    // If the default branch is the same as the current branch, we will exist early.
+    if current_branch == default_branch {
+        return Ok(());
+    }
 
     // We will now switch back to the previous branch.
     git::branch::switch(&current_branch, false)?;
@@ -36,8 +45,10 @@ pub async fn sync() -> Result<()> {
         git::branch::merge(&default_branch)?;
     }
 
-    // We will now apply the stash.
-    git::stash::apply_stash()?;
+    // We will now apply the stash. -- If there is actually a stash.
+    if git::stash::has_stash()? {
+        git::stash::apply_stash()?;
+    }
 
     // TODO: Check for conflicts and inform the user.
 
