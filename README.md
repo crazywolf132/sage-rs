@@ -26,9 +26,14 @@ So I built Sage to make my life easier, and hopefully yours too!
 ## Getting Started 🚀
 
 ### Requirements
-- Go 1.20 or later (required for module support)
 - Git (obviously!)
 - GitHub account for PR features
+- OpenSSL development packages:
+  - Ubuntu/Debian: `sudo apt-get install pkg-config libssl-dev`
+  - Fedora/RHEL: `sudo dnf install openssl-devel`
+  - macOS: `brew install openssl@3`
+  - Windows: Install OpenSSL via vcpkg or download from [OpenSSL's website](https://www.openssl.org)
+  - Arch Linux: `sudo pacman -S openssl`
 
 ### Installation Options
 
@@ -44,6 +49,7 @@ cargo install --git https://github.com/crazywolf132/sage-rs.git
 
 3. Build from source:
 ```bash
+# First, install OpenSSL development packages (see Requirements above)
 git clone https://github.com/crazywolf132/sage-rs.git
 cd sage-rs
 cargo build --release
@@ -57,6 +63,32 @@ sage -v
 ```
 
 ### Installation Troubleshooting 🔧
+
+If you encounter OpenSSL-related errors during build:
+
+1. Ensure OpenSSL development packages are installed (see Requirements above)
+
+2. Set OpenSSL environment variables if needed:
+```bash
+# macOS (when using Homebrew)
+export OPENSSL_DIR=$(brew --prefix openssl@3)
+
+# Windows (when using vcpkg)
+set OPENSSL_DIR=C:/vcpkg/installed/x64-windows-static
+set OPENSSL_STATIC=1
+
+# Linux (if OpenSSL is installed in a non-standard location)
+export OPENSSL_DIR=/path/to/openssl
+```
+
+3. For cross-compilation on Linux:
+```bash
+# Install OpenSSL for the target architecture (e.g., ARM64)
+sudo dpkg --add-architecture arm64
+sudo apt-get update
+sudo apt-get install -y libssl-dev:arm64
+export PKG_CONFIG_ALLOW_CROSS=1
+```
 
 If you encounter permission issues during installation, you might need to:
 

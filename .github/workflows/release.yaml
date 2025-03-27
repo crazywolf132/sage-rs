@@ -1,0 +1,289 @@
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * *'  # Run at midnight UTC every day
+
+# Add concurrency control
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  analyze-commits:
+    runs-on: ubuntu-latest
+    outputs:
+      release_type: ${{ steps.release-type.outputs.type }}
+      version_bump: ${{ steps.release-type.outputs.bump }}
+      has_changes: ${{ steps.changes.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for analyzing commits
+      
+      - name: Check for changes since last build
+        id: changes
+        run: |
+          # Get the last release commit (either release or nightly)
+          LAST_RELEASE=$(git for-each-ref --sort=-creatordate --format '%(refname)' refs/tags | head -n 1 || echo "")
+          if [ -z "$LAST_RELEASE" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Check if there are any new commits since last release
+          CHANGES=$(git log $LAST_RELEASE..HEAD --oneline)
+          if [ -n "$CHANGES" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Determine release type
+        id: release-type
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          # Get commits since last release or all commits if no release exists
+          LAST_RELEASE=$(git for-each-ref --sort=-creatordate --format '%(refname)' refs/tags | head -n 1 || echo "")
+          if [ -z "$LAST_RELEASE" ]; then
+            COMMITS=$(git log --format=%B)
+          else
+            COMMITS=$(git log $LAST_RELEASE..HEAD --format=%B)
+          fi
+          
+          # Look for release commit
+          if echo "$COMMITS" | grep -q "^release:"; then
+            # Determine version bump based on conventional commits
+            if echo "$COMMITS" | grep -q "^BREAKING CHANGE:" || echo "$COMMITS" | grep -q "!:"; then
+              echo "type=release" >> $GITHUB_OUTPUT
+              echo "bump=major" >> $GITHUB_OUTPUT
+            elif echo "$COMMITS" | grep -q "^feat:"; then
+              echo "type=release" >> $GITHUB_OUTPUT
+              echo "bump=minor" >> $GITHUB_OUTPUT
+            elif echo "$COMMITS" | grep -q "^fix:"; then
+              echo "type=release" >> $GITHUB_OUTPUT
+              echo "bump=patch" >> $GITHUB_OUTPUT
+            else
+              echo "type=release" >> $GITHUB_OUTPUT
+              echo "bump=patch" >> $GITHUB_OUTPUT
+            fi
+          else
+            # If no release commit, this is a nightly build
+            if [ "${{ github.event_name }}" = "schedule" ]; then
+              echo "type=nightly" >> $GITHUB_OUTPUT
+              echo "bump=none" >> $GITHUB_OUTPUT
+            else
+              echo "type=skip" >> $GITHUB_OUTPUT
+              echo "bump=none" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+  update-version:
+    needs: analyze-commits
+    if: needs.analyze-commits.outputs.release_type != 'skip'
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.bump-version.outputs.new_version }}
+      new_tag: ${{ steps.create-tag.outputs.tag }}
+      is_release: ${{ steps.check_release.outputs.is_release }}
+      has_changes: ${{ steps.check_changes.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Get current version
+        id: current-version
+        run: |
+          CURRENT_VERSION=$(grep '^version = ' Cargo.toml | cut -d '"' -f 2)
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Bump version
+        id: bump-version
+        run: |
+          CURRENT_VERSION="${{ steps.current-version.outputs.version }}"
+          
+          if [ "${{ needs.analyze-commits.outputs.release_type }}" = "nightly" ]; then
+            # For nightly, append -nightly.YYYYMMDD.HASH
+            HASH=$(git rev-parse --short HEAD)
+            DATE=$(date +%Y%m%d)
+            NEW_VERSION="$CURRENT_VERSION-nightly.$DATE.$HASH"
+          else
+            # Remove any pre-release suffix for version calculations
+            BASE_VERSION=$(echo "$CURRENT_VERSION" | cut -d'-' -f1)
+            
+            # For release, bump version according to conventional commits
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
+            
+            # Validate version components
+            if [[ ! "$MAJOR" =~ ^[0-9]+$ ]] || [[ ! "$MINOR" =~ ^[0-9]+$ ]] || [[ ! "$PATCH" =~ ^[0-9]+$ ]]; then
+              echo "Error: Invalid version format in Cargo.toml"
+              exit 1
+            fi
+            
+            case "${{ needs.analyze-commits.outputs.version_bump }}" in
+              "major")
+                NEW_VERSION="$((MAJOR + 1)).0.0"
+                ;;
+              "minor")
+                NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
+                ;;
+              "patch")
+                NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+                ;;
+              *)
+                echo "Error: Invalid version bump type"
+                exit 1
+                ;;
+            esac
+          fi
+          
+          # Validate the new version
+          if [[ ! "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "Error: Generated version '$NEW_VERSION' is invalid"
+            exit 1
+          fi
+          
+          # Update Cargo.toml with error handling
+          if ! sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" Cargo.toml; then
+            echo "Error: Failed to update version in Cargo.toml"
+            exit 1
+          fi
+          
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create and push tag
+        id: create-tag
+        run: |
+          NEW_VERSION="${{ steps.bump-version.outputs.new_version }}"
+          TAG="v$NEW_VERSION"
+          
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Commit version bump
+          git add Cargo.toml
+          git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
+          
+          # Create and push tag
+          git tag "$TAG"
+          git push origin "$TAG"
+          git push origin HEAD:${{ github.ref }}
+          
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+  build-and-release:
+    needs: [analyze-commits, update-version]
+    if: needs.analyze-commits.outputs.release_type != 'skip'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      # Get Rust version for cache keys
+      - name: Get Rust version
+        id: rust-version
+        run: |
+          echo "version=$(rustc --version)" >> $GITHUB_OUTPUT
+
+      # Cache OpenSSL installation
+      - name: Cache OpenSSL
+        id: cache-openssl
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/opt/openssl@3
+            ~/Library/Caches/Homebrew
+          key: macos-openssl-aarch64-${{ hashFiles('**/Cargo.lock') }}
+
+      # Use Swatinem/rust-cache for Rust artifacts
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: aarch64-apple-darwin-${{ steps.rust-version.outputs.version }}
+          shared-key: "release-build"
+          cache-directories: |
+            ~/.cargo/bin/
+            target/
+
+      # Install OpenSSL if not cached
+      - name: Install OpenSSL
+        if: steps.cache-openssl.outputs.cache-hit != 'true'
+        run: |
+          brew install openssl@3
+          echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
+
+      # Set OpenSSL env vars if cached
+      - name: Set OpenSSL env vars (cached)
+        if: steps.cache-openssl.outputs.cache-hit == 'true'
+        run: |
+          echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
+
+      # Build for ARM macOS
+      - name: Build binary
+        run: |
+          cargo build --release --target aarch64-apple-darwin
+
+      - name: Prepare archive
+        shell: bash
+        run: |
+          cd target/aarch64-apple-darwin/release
+          tar czf ../../../sage-aarch64-apple-darwin-${{ needs.update-version.outputs.new_version }}.tar.gz sage
+          cd -
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the last release tag with error handling
+          LAST_TAG=$(git for-each-ref --sort=-creatordate --format '%(refname)' refs/tags | head -n 1 | sed 's|refs/tags/||' || echo "")
+          
+          if [ -z "$LAST_TAG" ]; then
+            echo "No previous tags found, using all commits"
+            COMMITS=$(git log --format="* %s (%h)" --reverse)
+          else
+            echo "Found last tag: $LAST_TAG"
+            COMMITS=$(git log ${LAST_TAG}..HEAD --format="* %s (%h)" --reverse)
+          fi
+          
+          if [ -z "$COMMITS" ]; then
+            echo "No new commits found, using placeholder"
+            COMMITS="* No changes in this release"
+          fi
+          
+          # Create changelog content with error handling
+          {
+            echo "# Changes in this release"
+            echo ""
+            echo "$COMMITS"
+          } > CHANGELOG.md
+          
+          # Escape content for GitHub Actions with error handling
+          CHANGELOG="${COMMITS//'%'/'%25'}"
+          CHANGELOG="${CHANGELOG//$'\n'/'%0A'}"
+          CHANGELOG="${CHANGELOG//$'\r'/'%0D'}"
+          echo "content=$CHANGELOG" >> $GITHUB_OUTPUT
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.update-version.outputs.new_tag }}
+          name: Release ${{ needs.update-version.outputs.new_tag }}
+          body: ${{ steps.changelog.outputs.content }}
+          prerelease: ${{ needs.analyze-commits.outputs.release_type == 'nightly' }}
+          files: |
+            sage-aarch64-apple-darwin-${{ needs.update-version.outputs.new_version }}.*
