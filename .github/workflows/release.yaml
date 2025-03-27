@@ -6,6 +6,11 @@ on:
   schedule:
     - cron: '0 0 * * *'  # Run at midnight UTC every day
 
+# Add concurrency control
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -112,8 +117,18 @@ jobs:
             DATE=$(date +%Y%m%d)
             NEW_VERSION="$CURRENT_VERSION-nightly.$DATE.$HASH"
           else
+            # Remove any pre-release suffix for version calculations
+            BASE_VERSION=$(echo "$CURRENT_VERSION" | cut -d'-' -f1)
+            
             # For release, bump version according to conventional commits
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
+            
+            # Validate version components
+            if [[ ! "$MAJOR" =~ ^[0-9]+$ ]] || [[ ! "$MINOR" =~ ^[0-9]+$ ]] || [[ ! "$PATCH" =~ ^[0-9]+$ ]]; then
+              echo "Error: Invalid version format in Cargo.toml"
+              exit 1
+            fi
+            
             case "${{ needs.analyze-commits.outputs.version_bump }}" in
               "major")
                 NEW_VERSION="$((MAJOR + 1)).0.0"
@@ -124,11 +139,25 @@ jobs:
               "patch")
                 NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
                 ;;
+              *)
+                echo "Error: Invalid version bump type"
+                exit 1
+                ;;
             esac
           fi
           
-          # Update Cargo.toml
-          sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" Cargo.toml
+          # Validate the new version
+          if [[ ! "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "Error: Generated version '$NEW_VERSION' is invalid"
+            exit 1
+          fi
+          
+          # Update Cargo.toml with error handling
+          if ! sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" Cargo.toml; then
+            echo "Error: Failed to update version in Cargo.toml"
+            exit 1
+          fi
+          
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Create and push tag
@@ -191,69 +220,75 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      # Install cross-rs for Linux builds
-      - name: Install cross
+      # Get Rust version for cache keys
+      - name: Get Rust version
+        id: rust-version
+        run: |
+          echo "version=$(rustc --version)" >> $GITHUB_OUTPUT
+
+      # Cache cross installation
+      - name: Cache cross
         if: matrix.os == 'ubuntu-latest'
+        id: cache-cross
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cross
+          key: ${{ runner.os }}-cross-${{ steps.rust-version.outputs.version }}-${{ hashFiles('**/Cargo.lock') }}
+
+      # Cache OpenSSL installations
+      - name: Cache OpenSSL
+        if: matrix.os != 'ubuntu-latest'
+        id: cache-openssl
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:/vcpkg/installed
+            /usr/local/opt/openssl@3
+            ~/Library/Caches/Homebrew
+          key: ${{ runner.os }}-openssl-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+
+      # Use Swatinem/rust-cache for Rust artifacts (replaces manual cargo caching)
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}-${{ steps.rust-version.outputs.version }}
+          shared-key: "release-build"
+          cache-directories: |
+            ~/.cargo/bin/
+            target/
+
+      # Install cross-rs for Linux builds only if not cached
+      - name: Install cross
+        if: matrix.os == 'ubuntu-latest' && steps.cache-cross.outputs.cache-hit != 'true'
         run: cargo install cross --git https://github.com/cross-rs/cross
 
-      # Install OpenSSL dependencies for Linux
-      - name: Install OpenSSL (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        env:
-          OPENSSL_DIR: /opt/openssl
-        run: |
-          sudo apt-get update
-          sudo apt-get remove -y libssl-dev
-          sudo apt-get install -y pkg-config musl-tools
-          
-          if [[ "${{ matrix.target }}" == *"-musl" ]]; then
-            sudo apt-get install -y musl-dev musl-tools
-            
-            # Download and build OpenSSL
-            mkdir -p /tmp/build
-            cd /tmp/build
-            
-            # Use OpenSSL 3.1.5 for better compatibility
-            curl -L https://github.com/openssl/openssl/releases/download/openssl-3.1.5/openssl-3.1.5.tar.gz | tar --strip-components=1 -xzf -
-            
-            # Configure for the right architecture
-            if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
-              ./Configure --prefix=$OPENSSL_DIR --libdir=lib linux-aarch64 -fPIC -g no-shared
-            else
-              ./Configure --prefix=$OPENSSL_DIR --libdir=lib linux-x86_64 -fPIC -g no-shared
-            fi
-            
-            make -j$(nproc)
-            sudo make install_sw
-            
-            # Set environment variables
-            echo "OPENSSL_DIR=$OPENSSL_DIR" >> $GITHUB_ENV
-            echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
-            echo "PKG_CONFIG_SYSROOT_DIR=" >> $GITHUB_ENV
-          else
-            # For glibc targets
-            sudo apt-get install -y libssl-dev
-          fi
-
-      # Install OpenSSL on macOS - ARM64 only
+      # Install OpenSSL on macOS - ARM64 only if not cached
       - name: Install OpenSSL (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && steps.cache-openssl.outputs.cache-hit != 'true'
         run: |
           brew install openssl@3
           echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
 
-      # Install OpenSSL on Windows
+      # Install OpenSSL on Windows if not cached
       - name: Install OpenSSL (Windows)
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && steps.cache-openssl.outputs.cache-hit != 'true'
         run: |
           vcpkg install openssl:x64-windows-static
           echo "OPENSSL_DIR=C:/vcpkg/installed/x64-windows-static" >> $GITHUB_ENV
           echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
           echo "RUSTFLAGS=-C target-feature=+crt-static" >> $GITHUB_ENV
 
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.target }}
+      # Set OpenSSL env vars even if cached
+      - name: Set OpenSSL env vars (Windows cached)
+        if: matrix.os == 'windows-latest' && steps.cache-openssl.outputs.cache-hit == 'true'
+        run: |
+          echo "OPENSSL_DIR=C:/vcpkg/installed/x64-windows-static" >> $GITHUB_ENV
+          echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
+          echo "RUSTFLAGS=-C target-feature=+crt-static" >> $GITHUB_ENV
+
+      - name: Set OpenSSL env vars (macOS cached)
+        if: matrix.os == 'macos-latest' && steps.cache-openssl.outputs.cache-hit == 'true'
+        run: |
+          echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
 
       # Build using cross for Linux targets
       - name: Build binary (Linux)
@@ -270,12 +305,20 @@ jobs:
       - name: Prepare archive
         shell: bash
         run: |
-          # Strip binary on Unix systems (except macOS ARM64 which can't be stripped)
-          if [[ "${{ matrix.os }}" != "windows-latest" && "${{ matrix.target }}" != "aarch64-apple-darwin" ]]; then
-            strip "target/${{ matrix.target }}/release/sage" || true
-          fi
-          
           cd target/${{ matrix.target }}/release
+          
+          # Strip binary with proper error handling
+          if [[ "${{ matrix.os }}" != "windows-latest" && "${{ matrix.target }}" != "aarch64-apple-darwin" ]]; then
+            if command -v strip &> /dev/null; then
+              if strip sage 2>/dev/null; then
+                echo "Binary stripped successfully"
+              else
+                echo "Warning: Failed to strip binary, continuing with unstripped binary"
+              fi
+            else
+              echo "Warning: strip command not found, continuing with unstripped binary"
+            fi
+          fi
           
           # Create archive based on OS
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
@@ -288,23 +331,30 @@ jobs:
       - name: Generate changelog
         id: changelog
         run: |
-          # Get the last release tag
+          # Get the last release tag with error handling
           LAST_TAG=$(git for-each-ref --sort=-creatordate --format '%(refname)' refs/tags | head -n 1 | sed 's|refs/tags/||' || echo "")
           
           if [ -z "$LAST_TAG" ]; then
-            # First release - use all commits
+            echo "No previous tags found, using all commits"
             COMMITS=$(git log --format="* %s (%h)" --reverse)
           else
-            # Get commits since last release
+            echo "Found last tag: $LAST_TAG"
             COMMITS=$(git log ${LAST_TAG}..HEAD --format="* %s (%h)" --reverse)
           fi
           
-          # Create changelog content
-          echo "# Changes in this release" > CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          echo "$COMMITS" >> CHANGELOG.md
+          if [ -z "$COMMITS" ]; then
+            echo "No new commits found, using placeholder"
+            COMMITS="* No changes in this release"
+          fi
           
-          # Escape content for GitHub Actions
+          # Create changelog content with error handling
+          {
+            echo "# Changes in this release"
+            echo ""
+            echo "$COMMITS"
+          } > CHANGELOG.md
+          
+          # Escape content for GitHub Actions with error handling
           CHANGELOG="${COMMITS//'%'/'%25'}"
           CHANGELOG="${CHANGELOG//$'\n'/'%0A'}"
           CHANGELOG="${CHANGELOG//$'\r'/'%0D'}"
