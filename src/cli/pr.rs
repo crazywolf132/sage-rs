@@ -44,23 +44,23 @@ pub struct PrStatusArgs {
 pub struct PrCreateArgs {
     /// The title for the PR
     #[clap(short, long)]
-    pub title: String,
+    pub title: Option<String>,
 
     /// The body for the PR
     #[clap(short, long)]
-    pub body: String,
+    pub body: Option<String>,
 
     /// The base branch for the PR
-    #[clap(short, long, default_value = "main")]
-    pub base_branch: String,
+    #[clap(short, long)]
+    pub base_branch: Option<String>,
 
     /// The head branch for the PR
     #[clap(short, long)]
     pub head_branch: Option<String>,
 
     /// Toggle the PR as draft
-    #[clap(long, default_value_t = false)]
-    pub draft: bool,
+    #[clap(long)]
+    pub draft: Option<bool>,
 }
 
 impl Run for PrArgs {
@@ -87,12 +87,16 @@ async fn pr_status(args: &PrStatusArgs) -> Result<()> {
 }
 
 async fn pr_create(args: &PrCreateArgs) -> Result<()> {
+    // Use interactive mode if any required fields are missing
+    let interactive = args.title.is_none() || args.body.is_none();
+    
     app::pull_create::pull_create(
         args.title.clone(),
         args.body.clone(),
         args.base_branch.clone(),
         args.head_branch.clone(),
-        args.draft,
+        args.draft.unwrap_or(false),
+        interactive,
     )
     .await?;
     Ok(())
