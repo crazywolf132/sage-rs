@@ -149,52 +149,9 @@ jobs:
           
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
-  create-release:
+  build-and-release:
     needs: [analyze-commits, update-version]
     if: needs.analyze-commits.outputs.release_type != 'skip'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ needs.update-version.outputs.new_tag }}
-      
-      - name: Generate changelog
-        id: changelog
-        run: |
-          # Get the last release tag
-          LAST_TAG=$(git for-each-ref --sort=-creatordate --format '%(refname)' refs/tags | head -n 1 | sed 's|refs/tags/||' || echo "")
-          
-          if [ -z "$LAST_TAG" ]; then
-            # First release - use all commits
-            COMMITS=$(git log --format="* %s (%h)" --reverse)
-          else
-            # Get commits since last release
-            COMMITS=$(git log ${LAST_TAG}..HEAD --format="* %s (%h)" --reverse)
-          fi
-          
-          # Create changelog content
-          echo "# Changes in this release" > CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          echo "$COMMITS" >> CHANGELOG.md
-          
-          # Escape content for GitHub Actions
-          CHANGELOG="${COMMITS//'%'/'%25'}"
-          CHANGELOG="${CHANGELOG//$'\n'/'%0A'}"
-          CHANGELOG="${CHANGELOG//$'\r'/'%0D'}"
-          echo "content=$CHANGELOG" >> $GITHUB_OUTPUT
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ needs.update-version.outputs.new_tag }}
-          name: Release ${{ needs.update-version.outputs.new_tag }}
-          body: ${{ steps.changelog.outputs.content }}
-          prerelease: ${{ needs.analyze-commits.outputs.release_type == 'nightly' }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-  upload-assets:
-    needs: [create-release, update-version]
     strategy:
       matrix:
         include:
@@ -227,7 +184,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ needs.update-version.outputs.new_tag }}
       
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -244,11 +200,61 @@ jobs:
         with:
           key: ${{ matrix.target }}
       
-      - name: Build and upload binary
-        uses: taiki-e/upload-rust-binary-action@v1
+      - name: Build binary
+        run: |
+          cargo build --release --target ${{ matrix.target }}
+      
+      - name: Prepare archive
+        shell: bash
+        run: |
+          # Strip binary on Unix systems
+          if [[ "${{ matrix.os }}" != "windows-latest" ]]; then
+            strip "target/${{ matrix.target }}/release/sage" || true
+          fi
+          
+          cd target/${{ matrix.target }}/release
+          
+          # Create archive based on OS
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            7z a ../../../sage-${{ matrix.target }}-${{ needs.update-version.outputs.new_version }}.zip sage.exe
+          else
+            tar czf ../../../sage-${{ matrix.target }}-${{ needs.update-version.outputs.new_version }}.tar.gz sage
+          fi
+          cd -
+      
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the last release tag
+          LAST_TAG=$(git for-each-ref --sort=-creatordate --format '%(refname)' refs/tags | head -n 1 | sed 's|refs/tags/||' || echo "")
+          
+          if [ -z "$LAST_TAG" ]; then
+            # First release - use all commits
+            COMMITS=$(git log --format="* %s (%h)" --reverse)
+          else
+            # Get commits since last release
+            COMMITS=$(git log ${LAST_TAG}..HEAD --format="* %s (%h)" --reverse)
+          fi
+          
+          # Create changelog content
+          echo "# Changes in this release" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "$COMMITS" >> CHANGELOG.md
+          
+          # Escape content for GitHub Actions
+          CHANGELOG="${COMMITS//'%'/'%25'}"
+          CHANGELOG="${CHANGELOG//$'\n'/'%0A'}"
+          CHANGELOG="${CHANGELOG//$'\r'/'%0D'}"
+          echo "content=$CHANGELOG" >> $GITHUB_OUTPUT
+      
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          bin: sage
-          target: ${{ matrix.target }}
-          tar: unix
-          zip: windows
-          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ needs.update-version.outputs.new_tag }}
+          name: Release ${{ needs.update-version.outputs.new_tag }}
+          body: ${{ steps.changelog.outputs.content }}
+          prerelease: ${{ needs.analyze-commits.outputs.release_type == 'nightly' }}
+          files: |
+            sage-${{ matrix.target }}-${{ needs.update-version.outputs.new_version }}.*
