@@ -5,8 +5,11 @@ permissions:
 
 on:
   push:
-    tags:
-      - v[0-9]+.*
+    branches: [ "main" ]
+# on:
+#   push:
+#     tags:
+#       - v[0-9]+.*
 
 jobs:
   create-release:
