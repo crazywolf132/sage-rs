@@ -1,7 +1,7 @@
-use anyhow::Result;
 use crate::{errors, git};
+use anyhow::{anyhow, Result};
 
-pub async fn sync() -> Result<()> {
+pub fn sync() -> Result<()> {
     // First we need to check to see if we are in a repo
     if !git::repo::is_repo().unwrap() {
         return Err(errors::GitError::NotARepository.into());
@@ -12,7 +12,7 @@ pub async fn sync() -> Result<()> {
 
     // Get the current status to check if we've diverged
     let status = git::status::status()?;
-    
+
     // We will now stash the users changes.
     git::stash::stash_changes()?;
 
@@ -50,7 +50,14 @@ pub async fn sync() -> Result<()> {
         git::stash::apply_stash()?;
     }
 
-    // TODO: Check for conflicts and inform the user.
+    let conflicting_files = git::branch::conflicting_files()?;
+    if !conflicting_files.is_empty() {
+        println!("The following files are conflicting:");
+        for file in conflicting_files {
+            println!("  {}", file);
+        }
+        return Err(anyhow!("There are conflicting files."));
+    }
 
     // We will now push the changes to the remote.
     git::branch::push(&default_branch, false)?;
