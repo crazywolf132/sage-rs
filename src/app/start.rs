@@ -1,5 +1,5 @@
-use anyhow::Result;
 use crate::{errors, git};
+use anyhow::Result;
 
 pub fn start(name: String) -> Result<()> {
     // Check to ensure we are in a repo first.
@@ -30,6 +30,7 @@ pub fn start(name: String) -> Result<()> {
 
     // Create a new branch if it doesn't exist
     git::branch::switch(&name, true)?;
+    git::branch::set_upstream(&name)?;
 
     // Restore stashed changes if we stashed them earlier
     if stashed {
@@ -39,3 +40,4 @@ pub fn start(name: String) -> Result<()> {
 
     Ok(())
 }
+
