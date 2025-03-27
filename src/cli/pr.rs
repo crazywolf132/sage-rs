@@ -43,20 +43,20 @@ pub struct PrStatusArgs {
 #[derive(Parser, Debug)]
 pub struct PrCreateArgs {
     /// The title for the PR
-    #[clap(value_parser)]
+    #[clap(short, long)]
     pub title: String,
 
     /// The body for the PR
-    #[clap(value_parser)]
+    #[clap(short, long)]
     pub body: String,
 
     /// The base branch for the PR
-    #[clap(value_parser)]
+    #[clap(short, long, default_value = "main")]
     pub base_branch: String,
 
     /// The head branch for the PR
-    #[clap(value_parser)]
-    pub head_branch: String,
+    #[clap(short, long)]
+    pub head_branch: Option<String>,
 
     /// Toggle the PR as draft
     #[clap(long, default_value_t = false)]

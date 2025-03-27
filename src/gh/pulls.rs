@@ -67,7 +67,7 @@ pub async fn get_pr_number(owner: &str, repo: &str, branch: &str) -> Result<Opti
     let pull_requests = gh::get_instance()
         .pulls(owner, repo)
         .list()
-        .head(branch) // Filter by head branch name
+        .head(format!("{}:{}", owner, branch)) // Filter by head branch name
         .per_page(10) // We likely only need a few results
         .send()
         .await
@@ -121,4 +121,3 @@ pub async fn get_checks(owner: &str, repo: &str, pr_number: u64) -> Result<serde
 
     Ok(response)
 }
-
