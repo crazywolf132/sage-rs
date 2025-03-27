@@ -16,8 +16,10 @@ pub struct PrArgs {
 pub enum PrCommands {
     /// Checkout a PR into a local branch
     Checkout(PrCheckoutArgs),
-    // Add more PR subcommands here as needed
+    /// Check the status of a PR
     Status(PrStatusArgs),
+    /// Create a new PR
+    Create(PrCreateArgs),
 }
 
 #[derive(Parser, Debug)]
@@ -25,7 +27,7 @@ pub struct PrCheckoutArgs {
     /// The PR number to checkout
     #[clap(value_parser)]
     pub pr_number: u64,
-    
+
     /// The name of the local branch to create
     #[clap(value_parser)]
     pub branch_name: Option<String>,
@@ -38,11 +40,35 @@ pub struct PrStatusArgs {
     pub pr_number: Option<u64>,
 }
 
+#[derive(Parser, Debug)]
+pub struct PrCreateArgs {
+    /// The title for the PR
+    #[clap(value_parser)]
+    pub title: String,
+
+    /// The body for the PR
+    #[clap(value_parser)]
+    pub body: String,
+
+    /// The base branch for the PR
+    #[clap(value_parser)]
+    pub base_branch: String,
+
+    /// The head branch for the PR
+    #[clap(value_parser)]
+    pub head_branch: String,
+
+    /// Toggle the PR as draft
+    #[clap(long, default_value_t = false)]
+    pub draft: bool,
+}
+
 impl Run for PrArgs {
     async fn run(&self) -> Result<()> {
         match &self.command {
             Some(PrCommands::Checkout(args)) => pr_checkout(args).await,
             Some(PrCommands::Status(args)) => pr_status(args).await,
+            Some(PrCommands::Create(args)) => pr_create(args).await,
             None => pr_status(&PrStatusArgs { pr_number: None }).await,
         }
     }
@@ -57,5 +83,17 @@ async fn pr_checkout(args: &PrCheckoutArgs) -> Result<()> {
 /// Check the status of a PR
 async fn pr_status(args: &PrStatusArgs) -> Result<()> {
     app::pull_status::pull_status(args.pr_number).await?;
+    Ok(())
+}
+
+async fn pr_create(args: &PrCreateArgs) -> Result<()> {
+    app::pull_create::pull_create(
+        args.title.clone(),
+        args.body.clone(),
+        args.base_branch.clone(),
+        args.head_branch.clone(),
+        args.draft,
+    )
+    .await?;
     Ok(())
 }
