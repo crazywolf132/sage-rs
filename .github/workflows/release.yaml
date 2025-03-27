@@ -189,11 +189,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Free up disk space on Ubuntu runners
-      - name: Free Disk Space (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
-        uses: jlumbroso/free-disk-space@main
-        
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -204,12 +199,57 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: cargo install cross --git https://github.com/cross-rs/cross
 
+      # Install OpenSSL dependencies for Linux
+      - name: Install OpenSSL (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config musl-tools
+          if [[ "${{ matrix.target }}" == *"-musl" ]]; then
+            # For musl targets
+            sudo apt-get install -y musl-dev
+            # Install and configure OpenSSL for musl
+            wget https://www.openssl.org/source/openssl-3.1.5.tar.gz
+            tar xf openssl-3.1.5.tar.gz
+            cd openssl-3.1.5
+            
+            # Configure and build OpenSSL for musl
+            if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
+              export CFLAGS="-fPIC"
+              ./Configure no-shared linux-aarch64 --prefix=/usr/local/musl --openssldir=/usr/local/musl
+            else
+              export CFLAGS="-fPIC"
+              ./Configure no-shared linux-x86_64 --prefix=/usr/local/musl --openssldir=/usr/local/musl
+            fi
+            
+            make -j$(nproc)
+            sudo make install
+            cd ..
+            
+            # Set environment variables for the build
+            echo "OPENSSL_DIR=/usr/local/musl" >> $GITHUB_ENV
+            echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
+          else
+            # For glibc targets
+            sudo apt-get install -y libssl-dev
+          fi
+
       # Install OpenSSL on macOS
       - name: Install OpenSSL (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          brew install openssl@3
-          echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
+          if [[ "${{ matrix.target }}" == "x86_64-apple-darwin" ]]; then
+            # For x86_64, we need to use x86_64 OpenSSL
+            brew install openssl@3
+            brew unlink openssl@3
+            arch -x86_64 brew install openssl@3
+            echo "OPENSSL_DIR=$(arch -x86_64 brew --prefix openssl@3)" >> $GITHUB_ENV
+            echo "LIBRARY_PATH=$(arch -x86_64 brew --prefix openssl@3)/lib" >> $GITHUB_ENV
+          else
+            # For ARM64, use the default ARM64 OpenSSL
+            brew install openssl@3
+            echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
+          fi
 
       # Install OpenSSL on Windows
       - name: Install OpenSSL (Windows)
