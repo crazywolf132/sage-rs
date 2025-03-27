@@ -84,8 +84,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       new_version: ${{ steps.bump-version.outputs.new_version }}
+      new_tag: ${{ steps.create-tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -124,22 +127,27 @@ jobs:
           
           # Update Cargo.toml
           sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" Cargo.toml
-          
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create and push tag
+        id: create-tag
+        run: |
+          NEW_VERSION="${{ steps.bump-version.outputs.new_version }}"
+          TAG="v$NEW_VERSION"
           
-          # Commit the version bump
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
+          
+          # Commit version bump
           git add Cargo.toml
           git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
-          git tag "v$NEW_VERSION"
-
-      - name: Push changes
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ github.ref }}
-          tags: true
+          
+          # Create and push tag
+          git tag "$TAG"
+          git push origin "$TAG"
+          git push origin HEAD:${{ github.ref }}
+          
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
   create-release:
     needs: [analyze-commits, update-version]
@@ -149,7 +157,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.ref }}
+          ref: ${{ needs.update-version.outputs.new_tag }}
       
       - name: Generate changelog
         id: changelog
@@ -179,24 +187,68 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ needs.update-version.outputs.new_version }}
-          name: Release v${{ needs.update-version.outputs.new_version }}
+          tag_name: ${{ needs.update-version.outputs.new_tag }}
+          name: Release ${{ needs.update-version.outputs.new_tag }}
           body: ${{ steps.changelog.outputs.content }}
           prerelease: ${{ needs.analyze-commits.outputs.release_type == 'nightly' }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
   upload-assets:
     needs: [create-release, update-version]
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Linux builds
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            cross: false
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            cross: true
+          
+          # macOS builds
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            cross: false
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            cross: false
+          
+          # Windows builds
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            cross: false
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            cross: true
+    
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref }}
+          fetch-depth: 0
+          ref: ${{ needs.update-version.outputs.new_tag }}
+      
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      
+      - name: Set up cross-compilation tools
+        if: matrix.cross
+        uses: taiki-e/setup-cross-toolchain-action@v1
+        with:
+          target: ${{ matrix.target }}
+      
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
       
       - name: Build and upload binary
         uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: sage
+          target: ${{ matrix.target }}
           tar: unix
           zip: windows
           token: ${{ secrets.GITHUB_TOKEN }}
