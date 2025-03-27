@@ -171,10 +171,7 @@ jobs:
           - os: ubuntu-latest
             target: aarch64-unknown-linux-musl
             cross: true
-          # macOS builds
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            cross: false
+          # macOS builds - ARM64 only
           - os: macos-latest
             target: aarch64-apple-darwin
             cross: true
@@ -202,54 +199,48 @@ jobs:
       # Install OpenSSL dependencies for Linux
       - name: Install OpenSSL (Linux)
         if: matrix.os == 'ubuntu-latest'
+        env:
+          OPENSSL_DIR: /opt/openssl
         run: |
           sudo apt-get update
+          sudo apt-get remove -y libssl-dev
           sudo apt-get install -y pkg-config musl-tools
+          
           if [[ "${{ matrix.target }}" == *"-musl" ]]; then
-            # For musl targets
-            sudo apt-get install -y musl-dev
-            # Install and configure OpenSSL for musl
-            wget https://www.openssl.org/source/openssl-3.1.5.tar.gz
-            tar xf openssl-3.1.5.tar.gz
-            cd openssl-3.1.5
+            sudo apt-get install -y musl-dev musl-tools
             
-            # Configure and build OpenSSL for musl
+            # Download and build OpenSSL
+            mkdir -p /tmp/build
+            cd /tmp/build
+            
+            # Use OpenSSL 3.1.5 for better compatibility
+            curl -L https://github.com/openssl/openssl/releases/download/openssl-3.1.5/openssl-3.1.5.tar.gz | tar --strip-components=1 -xzf -
+            
+            # Configure for the right architecture
             if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
-              export CFLAGS="-fPIC"
-              ./Configure no-shared linux-aarch64 --prefix=/usr/local/musl --openssldir=/usr/local/musl
+              ./Configure --prefix=$OPENSSL_DIR --libdir=lib linux-aarch64 -fPIC -g no-shared
             else
-              export CFLAGS="-fPIC"
-              ./Configure no-shared linux-x86_64 --prefix=/usr/local/musl --openssldir=/usr/local/musl
+              ./Configure --prefix=$OPENSSL_DIR --libdir=lib linux-x86_64 -fPIC -g no-shared
             fi
             
             make -j$(nproc)
-            sudo make install
-            cd ..
+            sudo make install_sw
             
-            # Set environment variables for the build
-            echo "OPENSSL_DIR=/usr/local/musl" >> $GITHUB_ENV
+            # Set environment variables
+            echo "OPENSSL_DIR=$OPENSSL_DIR" >> $GITHUB_ENV
             echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
+            echo "PKG_CONFIG_SYSROOT_DIR=" >> $GITHUB_ENV
           else
             # For glibc targets
             sudo apt-get install -y libssl-dev
           fi
 
-      # Install OpenSSL on macOS
+      # Install OpenSSL on macOS - ARM64 only
       - name: Install OpenSSL (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          if [[ "${{ matrix.target }}" == "x86_64-apple-darwin" ]]; then
-            # For x86_64, we need to use x86_64 OpenSSL
-            brew install openssl@3
-            brew unlink openssl@3
-            arch -x86_64 brew install openssl@3
-            echo "OPENSSL_DIR=$(arch -x86_64 brew --prefix openssl@3)" >> $GITHUB_ENV
-            echo "LIBRARY_PATH=$(arch -x86_64 brew --prefix openssl@3)/lib" >> $GITHUB_ENV
-          else
-            # For ARM64, use the default ARM64 OpenSSL
-            brew install openssl@3
-            echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
-          fi
+          brew install openssl@3
+          echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
 
       # Install OpenSSL on Windows
       - name: Install OpenSSL (Windows)
