@@ -7,7 +7,7 @@ pub fn stash_changes() -> Result<()> {
         .arg("stash")
         .arg("push")
         .arg("-m")
-        .arg("Auto-stashed by sage tool")
+        .arg("Auto-stashed by sage")
         .output()?;
     
     if result.status.success() {
@@ -15,6 +15,26 @@ pub fn stash_changes() -> Result<()> {
     }
     
     return Err(anyhow!("Failed to stash changes. {}", String::from_utf8(result.stderr)?));
+}
+
+/// Determines if there are any stashes
+pub fn has_stash() -> Result<bool> {
+    let result = Command::new("git")
+        .arg("stash")
+        .arg("list")
+        .output()?;
+    
+    if result.status.success() {
+        return Ok(true);
+    }
+    
+    if let Ok(stderr) = String::from_utf8(result.stderr.clone()) {
+        if stderr.contains("No stash entries found") {
+            return Ok(false);
+        }
+    }
+        
+    Err(anyhow!("Failed to check for stashes. {}", String::from_utf8(result.stderr)?))
 }
 
 /// Applies and drops the most recent stash
