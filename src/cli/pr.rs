@@ -51,7 +51,10 @@ This is useful for quickly checking the status of the PR you're currently workin
 EXAMPLES:
   sage pr status         # Show status of PR associated with current branch
   sage pr status 456     # Show status of PR #456")]
+
     Status(PrStatusArgs),
+    /// Create a new PR
+    Create(PrCreateArgs),
 }
 
 #[derive(Parser, Debug)]
@@ -59,7 +62,7 @@ pub struct PrCheckoutArgs {
     /// The PR number to checkout
     #[clap(value_parser, long_help = "The pull request number to checkout. This must be a valid PR number for the current repository.")]
     pub pr_number: u64,
-    
+
     /// The name of the local branch to create
     #[clap(value_parser, long_help = "Optional custom name for the local branch to create. If not provided, the PR's original branch name will be used.")]
     pub branch_name: Option<String>,
@@ -72,11 +75,35 @@ pub struct PrStatusArgs {
     pub pr_number: Option<u64>,
 }
 
+#[derive(Parser, Debug)]
+pub struct PrCreateArgs {
+    /// The title for the PR
+    #[clap(short, long)]
+    pub title: Option<String>,
+
+    /// The body for the PR
+    #[clap(short, long)]
+    pub body: Option<String>,
+
+    /// The base branch for the PR
+    #[clap(short, long)]
+    pub base_branch: Option<String>,
+
+    /// The head branch for the PR
+    #[clap(short, long)]
+    pub head_branch: Option<String>,
+
+    /// Toggle the PR as draft
+    #[clap(long)]
+    pub draft: Option<bool>,
+}
+
 impl Run for PrArgs {
     async fn run(&self) -> Result<()> {
         match &self.command {
             Some(PrCommands::Checkout(args)) => pr_checkout(args).await,
             Some(PrCommands::Status(args)) => pr_status(args).await,
+            Some(PrCommands::Create(args)) => pr_create(args).await,
             None => pr_status(&PrStatusArgs { pr_number: None }).await,
         }
     }
@@ -99,5 +126,21 @@ async fn pr_checkout(args: &PrCheckoutArgs) -> Result<()> {
 /// If no PR number is provided, it attempts to find a PR associated with the current branch.
 async fn pr_status(args: &PrStatusArgs) -> Result<()> {
     app::pull_status::pull_status(args.pr_number).await?;
+    Ok(())
+}
+
+async fn pr_create(args: &PrCreateArgs) -> Result<()> {
+    // Use interactive mode if any required fields are missing
+    let interactive = args.title.is_none() || args.body.is_none();
+    
+    app::pull_create::pull_create(
+        args.title.clone(),
+        args.body.clone(),
+        args.base_branch.clone(),
+        args.head_branch.clone(),
+        args.draft.unwrap_or(false),
+        interactive,
+    )
+    .await?;
     Ok(())
 }
