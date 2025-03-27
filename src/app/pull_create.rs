@@ -11,12 +11,6 @@ pub async fn pull_create(
     let (owner, repo) = git::repo::owner_repo()?;
     let head_branch = head_branch.unwrap_or(git::branch::current()?);
 
-    println!("Title: {}", &title);
-    println!("Body: {}", &body);
-    println!("Head branch: {}", &head_branch);
-    println!("Base branch: {}", &base_branch);
-    println!("Draft: {}", &draft);
-
     // Check to make sure a pull request doesn't already exist
     let pull_request = pulls::get_pr_number(&owner, &repo, &head_branch).await?;
     if pull_request.is_some() {
