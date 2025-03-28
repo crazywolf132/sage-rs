@@ -6,12 +6,23 @@ use colored::Colorize;
 use std::path::Path;
 
 #[derive(Parser, Debug)]
+#[clap(after_help = "This command simplifies the process of cloning GitHub repositories by using a more intuitive syntax. \
+Instead of typing the full GitHub URL, you can simply provide the repository in the format 'owner/repo'. \
+The command will handle constructing the proper URL based on your preferred protocol (HTTPS or SSH).")]
 pub struct CloneArgs {
     /// Name of the repo to clone (format: owner/repo)
+    #[clap(long_help = "The repository to clone in the format 'owner/repo'. \
+This is the GitHub username or organization name, followed by a slash, \
+followed by the repository name. For example: 'octocat/Hello-World' or 'rust-lang/rust'. \
+The command will automatically construct the proper GitHub URL from this information.")]
     name: String,
     
     /// Use SSH for cloning instead of HTTPS
-    #[clap(long, short)]
+    #[clap(long, short, long_help = "Use SSH protocol for cloning instead of HTTPS (default). \
+When this flag is set, the command will use 'git@github.com:owner/repo.git' format \
+instead of 'https://github.com/owner/repo'. \
+SSH is preferred if you have SSH keys set up with GitHub and want to avoid \
+entering your username and password for each operation.")]
     ssh: bool,
 }
 
