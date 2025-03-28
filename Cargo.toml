@@ -37,4 +37,4 @@ name = "sage"
 path = "src/main.rs"
 
 [dev-dependencies]
-mockall = "0.12.1"
+mockall = "0.13.1"
