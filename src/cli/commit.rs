@@ -20,6 +20,10 @@ pub struct Commit {
     #[clap(short, long)]
     /// Use ai to generate commit message
     ai: bool,
+
+    #[clap(short = 'y', long = "yes")]
+    /// Skip confirmation when using AI-generated commit message
+    auto_confirm: bool,
 }
 
 impl Run for Commit {
@@ -29,6 +33,7 @@ impl Run for Commit {
         opts.message = self.message.clone();
         opts.push = self.push;
         opts.ai = self.ai;
+        opts.auto_confirm = self.auto_confirm;
         
         app::commit::commit(&opts).await?;
         Ok(())

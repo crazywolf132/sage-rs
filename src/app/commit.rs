@@ -1,5 +1,6 @@
 use anyhow::Result;
 use crate::{ai, errors, git};
+use inquire::Confirm;
 
 #[derive(Default)]
 pub struct CommitOptions {
@@ -11,6 +12,8 @@ pub struct CommitOptions {
     pub push: bool,
     /// Use AI to generate commit message
     pub ai: bool,
+    /// Skip confirmation when using AI-generated commit message
+    pub auto_confirm: bool,
 }
 
 pub async fn commit(opts: &CommitOptions) -> Result<()> {
@@ -37,7 +40,21 @@ pub async fn commit(opts: &CommitOptions) -> Result<()> {
     // Get the commit message - either from AI or user input
     let message = if opts.ai {
         println!("✨ AI mode activated. Generating commit message...");
-        ai::commit::generate().await?
+        let generated_message = ai::commit::generate().await?;
+        
+        // If not auto-confirming, ask for user approval
+        if !opts.auto_confirm {
+            println!("\nProposed commit message:\n{}\n", generated_message);
+            
+            if !Confirm::new("Do you want to use this commit message?")
+                .with_default(true)
+                .prompt()? 
+            {
+                return Err(anyhow::anyhow!("Commit message rejected by user"));
+            }
+        }
+        
+        generated_message
     } else {
         // If not using AI, message must be provided
         opts.message.clone().ok_or_else(|| anyhow::anyhow!("Commit message is required when not using AI"))?
