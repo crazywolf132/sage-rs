@@ -15,7 +15,7 @@ pub struct CommitOptions {
 
 pub async fn commit(opts: &CommitOptions) -> Result<()> {
     // Check to ensure we are in a repo first.
-    if !git::repo::is_repo().unwrap() {
+    if !git::repo::is_repo()? {
         return Err(errors::GitError::NotARepository.into());
     }
 
