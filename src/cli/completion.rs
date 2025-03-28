@@ -64,35 +64,35 @@ impl Run for CompletionArgs {
         // Print a helpful comment at the top of the generated script
         match self.shell {
             Shell::Bash => {
-                eprintln!("# Bash completion script for sage");
-                eprintln!("# Save this output to ~/.bash_completion.d/sage");
-                eprintln!("# Make sure the directory exists: mkdir -p ~/.bash_completion.d/");
-                eprintln!("# Add to ~/.bashrc: source ~/.bash_completion.d/sage");
-                eprintln!("#");
+                println!("# Bash completion script for sage");
+                println!("# Save this output to ~/.bash_completion.d/sage");
+                println!("# Make sure the directory exists: mkdir -p ~/.bash_completion.d/");
+                println!("# Add to ~/.bashrc: source ~/.bash_completion.d/sage");
+                println!("#");
                 generate(Bash, &mut cmd, "sage", &mut stdout);
             }
             Shell::Zsh => {
-                eprintln!("# Zsh completion script for sage");
-                eprintln!("# Save this output to ~/.zsh/completions/_sage");
-                eprintln!("# Make sure the directory exists: mkdir -p ~/.zsh/completions/");
-                eprintln!("# Add to ~/.zshrc:");
-                eprintln!("# fpath=(~/.zsh/completions $fpath)");
-                eprintln!("# autoload -U compinit && compinit");
-                eprintln!("#");
+                println!("# Zsh completion script for sage");
+                println!("# Save this output to ~/.zsh/completions/_sage");
+                println!("# Make sure the directory exists: mkdir -p ~/.zsh/completions/");
+                println!("# Add to ~/.zshrc:");
+                println!("# fpath=(~/.zsh/completions $fpath)");
+                println!("# autoload -U compinit && compinit");
+                println!("#");
                 generate(Zsh, &mut cmd, "sage", &mut stdout);
             }
             Shell::Fish => {
-                eprintln!("# Fish completion script for sage");
-                eprintln!("# Save this output to ~/.config/fish/completions/sage.fish");
-                eprintln!("# Make sure the directory exists: mkdir -p ~/.config/fish/completions/");
-                eprintln!("#");
+                println!("# Fish completion script for sage");
+                println!("# Save this output to ~/.config/fish/completions/sage.fish");
+                println!("# Make sure the directory exists: mkdir -p ~/.config/fish/completions/");
+                println!("#");
                 generate(Fish, &mut cmd, "sage", &mut stdout);
             }
         }
 
         // Print a helpful message to stderr after generating the script
-        eprintln!("\n# Generated completion script for {} shell", self.shell.to_string().to_lowercase());
-        eprintln!("# See installation instructions with: sage completion --help");
+        println!("\n# Generated completion script for {} shell", self.shell.to_string().to_lowercase());
+        println!("# See installation instructions with: sage completion --help");
 
         Ok(())
     }
