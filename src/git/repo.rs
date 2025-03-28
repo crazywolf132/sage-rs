@@ -54,14 +54,13 @@ pub fn stage_all() -> Result<()> {
 
 /// default_branch returns the default branch
 pub fn default_branch() -> Result<String> {
-    let result = Command::new("git")
-        .arg("rev-parse")
-        .arg("--abbrev-ref")
-        .arg("HEAD")
+    let result: std::process::Output = Command::new("git")
+        .arg("symbolic-ref")
+        .arg("refs/remotes/origin/HEAD")
         .output()?;
 
     let stdout = String::from_utf8(result.stdout)?;
-    Ok(stdout.trim().to_string())
+    Ok(stdout.trim().replace("refs/remotes/origin/", "").to_string())
 }
 
 /// fetch_remote will fetch the remote

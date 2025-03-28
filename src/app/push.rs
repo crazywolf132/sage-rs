@@ -5,7 +5,7 @@ use colored::Colorize;
 pub fn push(force: bool) -> Result<()> {
 
     // Check to ensure we are in a repo first.
-    if !git::repo::is_repo().unwrap() {
+    if !git::repo::is_repo()? {
         return Err(errors::GitError::NotARepository.into());
     }
 

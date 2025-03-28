@@ -292,7 +292,6 @@ pub fn rebase(branch_name: &str) -> Result<()> {
     ))
 }
 
-
 /// List conflicting files within the branch
 pub fn conflicting_files() -> Result<Vec<String>> {
     let output = Command::new("git")
@@ -300,7 +299,6 @@ pub fn conflicting_files() -> Result<Vec<String>> {
         .arg("--name-only")
         .arg("--diff-filter=U")
         .output()?;
-
 
     if !output.status.success() {
         return Err(anyhow!("Failed to list conflicting files: {}", 
@@ -310,4 +308,41 @@ pub fn conflicting_files() -> Result<Vec<String>> {
     let output_str = String::from_utf8(output.stdout)?;
     let files: Vec<&str> = output_str.split_whitespace().collect();
     Ok(files.iter().map(|f| f.to_string()).collect())
+}
+
+/// Delete a local branch
+pub fn delete_local(branch_name: &str) -> Result<()> {
+    let result = Command::new("git")
+        .arg("branch")
+        .arg("-D")  // Force delete
+        .arg(branch_name)
+        .output()?;
+
+    if result.status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "Failed to delete local branch: {}",
+            String::from_utf8_lossy(&result.stderr)
+        ))
+    }
+}
+
+/// Delete a remote branch
+pub fn delete_remote(branch_name: &str) -> Result<()> {
+    let result = Command::new("git")
+        .arg("push")
+        .arg("origin")
+        .arg("--delete")
+        .arg(branch_name)
+        .output()?;
+
+    if result.status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "Failed to delete remote branch: {}",
+            String::from_utf8_lossy(&result.stderr)
+        ))
+    }
 }

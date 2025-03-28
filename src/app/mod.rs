@@ -8,4 +8,4 @@ pub mod start;
 pub mod status;
 pub mod switch;
 pub mod sync;
-
+pub mod clean;

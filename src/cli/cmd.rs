@@ -8,9 +8,9 @@ use crate::cli::list;
 use crate::cli::completion;
 use crate::cli::pr;
 use crate::cli::sync;
+use crate::cli::clean;
 
 use clap::Parser;
-
 
 #[derive(Parser, Debug)]
 pub enum Cmd {
@@ -243,5 +243,8 @@ feature branches that need to incorporate ongoing changes from the main codebase
 EXAMPLES:
   sage sync")]
     Sync(sync::SyncArgs),
+
+    /// Cleans up all dead branches
+    Clean(clean::CleanArgs),
 }
 

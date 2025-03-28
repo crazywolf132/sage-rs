@@ -4,7 +4,7 @@ use colored::Colorize;
 
 pub async fn pull_status(pr_number: Option<u64>) -> Result<()> {
     // Check to ensure we are in a repo first.
-    if !git::repo::is_repo().unwrap() {
+    if !git::repo::is_repo()? {
         return Err(errors::GitError::NotARepository.into());
     }
 
