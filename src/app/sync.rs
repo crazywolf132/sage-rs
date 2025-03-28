@@ -1,5 +1,6 @@
 use crate::{errors, git};
 use anyhow::{anyhow, Result};
+use crate::ui::ColorizeExt;
 
 /// Sync the current branch with its upstream/parent branch
 /// 
@@ -20,8 +21,6 @@ pub fn sync() -> Result<()> {
 
     // Get initial status
     let status = git::status::status()?;
-    println!("\nInitial state:");
-    println!("{}\n", status);
 
     // Fetch latest changes from remote to get an up-to-date picture
     println!("Fetching remote changes...");
@@ -58,7 +57,7 @@ pub fn sync() -> Result<()> {
 
     if diverged {
         // Branch has diverged - try to rebase but fall back to merge if needed
-        println!("Branch has diverged from {}...", default_branch);
+        println!("Branch has diverged from {}...", default_branch.sage());
         
         // Try rebase first
         if let Err(_) = git::branch::rebase(&default_branch) {
@@ -70,10 +69,10 @@ pub fn sync() -> Result<()> {
             if let Err(_) = git::branch::merge(&default_branch) {
                 // Both rebase and merge failed - need manual intervention
                 println!("\n⚠️  Could not automatically sync branch:");
-                println!("1. Your branch has diverged significantly from {}", default_branch);
+                println!("1. Your branch has diverged significantly from {}", default_branch.sage());
                 println!("2. Both rebase and merge resulted in conflicts");
                 println!("\nRecommended actions:");
-                println!("1. Manually merge {} into your branch", default_branch);
+                println!("1. Manually merge {} into your branch", default_branch.sage());
                 println!("2. Resolve the conflicts");
                 println!("3. Run sage sync again");
                 return Err(anyhow!("Could not automatically sync diverged branch"));
@@ -81,7 +80,7 @@ pub fn sync() -> Result<()> {
         }
     } else if behind {
         // We're just behind - do a rebase
-        println!("Branch is behind {}, updating...", default_branch);
+        println!("Branch is behind {}, updating...", default_branch.sage());
         git::branch::rebase(&default_branch)?;
     } else if ahead && !has_local_changes {
         // We're ahead with clean commits - try to push
@@ -96,11 +95,7 @@ pub fn sync() -> Result<()> {
         git::commit::pop_wip_commit()?;
     }
 
-    // Get final status
-    let final_status = git::status::status()?;
-    println!("\nFinal state:");
-    println!("{}\n", final_status);
-    println!("✨ Successfully synced branch '{}'!", current_branch);
+    println!("✨ Successfully synced branch {}!", current_branch.sage());
 
     Ok(())
 }
