@@ -6,7 +6,8 @@ use anyhow::Result;
 #[derive(Parser, Debug)]
 pub struct Commit {
     /// Commit message
-    message: String,
+    #[clap(required_unless_present = "ai")]
+    message: Option<String>,
 
     #[clap(short, long)]
     /// Create an empty commit
@@ -23,11 +24,9 @@ pub struct Commit {
 
 impl Run for Commit {
     async fn run(&self) -> Result<()> {
-        println!("Committing with message: {}", self.message);
-
         let mut opts = app::commit::CommitOptions::default();
         opts.empty = self.empty;
-        opts.message = self.message.to_string();
+        opts.message = self.message.clone();
         opts.push = self.push;
         opts.ai = self.ai;
         

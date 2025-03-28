@@ -4,7 +4,7 @@ use crate::{ai, errors, git};
 #[derive(Default)]
 pub struct CommitOptions {
     /// The message to commit with
-    pub message: String,
+    pub message: Option<String>,
     /// Whether to allow empty commits or not
     pub empty: bool,
     /// Push to remote after committing
@@ -34,12 +34,13 @@ pub async fn commit(opts: &CommitOptions) -> Result<()> {
         git::repo::stage_all()?;
     }
 
-    // If the user requested that we use AI to generate the commit message, we will do that here.
+    // Get the commit message - either from AI or user input
     let message = if opts.ai {
         println!("✨ AI mode activated. Generating commit message...");
         ai::commit::generate().await?
     } else {
-        opts.message.clone()
+        // If not using AI, message must be provided
+        opts.message.clone().ok_or_else(|| anyhow::anyhow!("Commit message is required when not using AI"))?
     };
 
     // We will now create the commit.
