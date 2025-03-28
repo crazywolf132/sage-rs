@@ -1,6 +1,6 @@
 [package]
 name = "sage"
-version = "0.2.8"
+version = "0.2.8-nightly.20250328.6f76750"
 edition = "2024"
 description = "A Git companion tool with AI capabilities"
 authors = ["Brayden Moon"]
