@@ -6,7 +6,7 @@ use anyhow::Result;
 #[derive(Parser, Debug)]
 pub struct Commit {
     /// Commit message
-    #[clap(help = "The message for your commit. When used with --ai, this message will be ignored and an AI-generated message will be used instead.")]
+    #[clap(help = "The message for your commit. When used with --ai, this message will be ignored and an AI-generated message will be used instead.", required_unless_present = "ai")]
     message: String,
 
     #[clap(short, long)]
@@ -23,17 +23,20 @@ pub struct Commit {
     /// Use AI to generate commit message
     #[clap(long_help = "Analyzes your changes and generates a descriptive commit message using AI. The generated message follows the Conventional Commits specification (https://www.conventionalcommits.org/) with appropriate type prefixes like 'feat:', 'fix:', 'docs:', etc. This helps maintain a standardized and meaningful commit history.")]
     ai: bool,
+
+    #[clap(short = 'y', long = "yes")]
+    /// Skip confirmation when using AI-generated commit message
+    auto_confirm: bool,
 }
 
 impl Run for Commit {
     async fn run(&self) -> Result<()> {
-        println!("Committing with message: {}", self.message);
-
         let mut opts = app::commit::CommitOptions::default();
         opts.empty = self.empty;
-        opts.message = self.message.to_string();
+        opts.message = self.message.clone();
         opts.push = self.push;
         opts.ai = self.ai;
+        opts.auto_confirm = self.auto_confirm;
         
         app::commit::commit(&opts).await?;
         Ok(())

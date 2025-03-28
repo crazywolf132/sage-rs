@@ -7,6 +7,11 @@ pub fn sync() -> Result<()> {
         return Err(errors::GitError::NotARepository.into());
     }
 
+    // Get initial status to show what's changing
+    let initial_status = git::status::status()?;
+    println!("\nInitial state:");
+    println!("{}\n", initial_status);
+
     // We will now fetch the remote.
     git::repo::fetch_remote()?;
 
@@ -31,6 +36,11 @@ pub fn sync() -> Result<()> {
 
     // If the default branch is the same as the current branch, we will exist early.
     if current_branch == default_branch {
+        // Get final status
+        let final_status = git::status::status()?;
+        println!("\nFinal state:");
+        println!("{}\n", final_status);
+        println!("✨ Successfully synced repository on branch '{}'!", current_branch);
         return Ok(());
     }
 
@@ -61,6 +71,12 @@ pub fn sync() -> Result<()> {
 
     // We will now push the changes to the remote.
     git::branch::push(&default_branch, false)?;
+
+    // Get final status
+    let final_status = git::status::status()?;
+    println!("\nFinal state:");
+    println!("{}\n", final_status);
+    println!("✨ Successfully synced repository on branch '{}'!", current_branch);
 
     Ok(())
 }
