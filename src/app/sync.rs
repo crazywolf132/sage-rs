@@ -3,7 +3,7 @@ use anyhow::{anyhow, Result};
 
 pub fn sync() -> Result<()> {
     // First we need to check to see if we are in a repo
-    if !git::repo::is_repo().unwrap() {
+    if !git::repo::is_repo()? {
         return Err(errors::GitError::NotARepository.into());
     }
 

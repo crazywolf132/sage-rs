@@ -4,7 +4,7 @@ use crate::{errors, git};
 pub fn status() -> Result<()> {
 
     // Check to ensure we are in a repo first.
-    if !git::repo::is_repo().unwrap() {
+    if !git::repo::is_repo()? {
         return Err(errors::GitError::NotARepository.into());
     }
 
