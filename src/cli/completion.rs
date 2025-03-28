@@ -2,20 +2,58 @@ use crate::cli::Run;
 use anyhow::Result;
 use clap::{Parser, CommandFactory};
 use clap_complete::{generate, shells::Bash, shells::Zsh, shells::Fish};
+use std::fmt;
 use std::io;
 
 #[derive(Parser, Debug)]
+#[clap(after_help = "INSTALLATION INSTRUCTIONS:
+
+Bash:
+  $ sage completion bash > ~/.bash_completion.d/sage
+  # Make sure the directory exists first:
+  # mkdir -p ~/.bash_completion.d
+  # Add to ~/.bashrc if not already sourcing completion directory:
+  # source ~/.bash_completion.d/sage
+
+Zsh:
+  $ mkdir -p ~/.zsh/completions
+  $ sage completion zsh > ~/.zsh/completions/_sage
+  # Add to ~/.zshrc if not already in fpath:
+  # fpath=(~/.zsh/completions $fpath)
+  # autoload -U compinit && compinit
+
+Fish:
+  $ sage completion fish > ~/.config/fish/completions/sage.fish")]
 pub struct CompletionArgs {
-    /// Shell to generate completions for (bash, zsh, fish)
-    #[clap(value_enum)]
+    /// Shell to generate completions for
+    #[clap(value_enum, long_help = "Specifies which shell's completion script to generate. Choose from:
+- bash: Generates Bash completions that work with bash-completion
+- zsh: Generates Zsh completions using the _describe completer
+- fish: Generates Fish shell completions
+
+The generated script will be output to stdout, which you can redirect to the appropriate location for your shell.")]
     pub shell: Shell,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
+#[clap(rename_all = "lowercase")]
 pub enum Shell {
+    /// Bash shell completions (compatible with bash-completion)
     Bash,
+    /// Zsh shell completions (using the _describe completer)
     Zsh,
+    /// Fish shell completions
     Fish,
+}
+
+impl fmt::Display for Shell {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Shell::Bash => write!(f, "Bash"),
+            Shell::Zsh => write!(f, "Zsh"),
+            Shell::Fish => write!(f, "Fish"),
+        }
+    }
 }
 
 impl Run for CompletionArgs {
@@ -23,17 +61,38 @@ impl Run for CompletionArgs {
         let mut cmd = crate::cli::Cmd::command();
         let mut stdout = io::stdout();
 
+        // Print a helpful comment at the top of the generated script
         match self.shell {
             Shell::Bash => {
+                println!("# Bash completion script for sage");
+                println!("# Save this output to ~/.bash_completion.d/sage");
+                println!("# Make sure the directory exists: mkdir -p ~/.bash_completion.d/");
+                println!("# Add to ~/.bashrc: source ~/.bash_completion.d/sage");
+                println!("#");
                 generate(Bash, &mut cmd, "sage", &mut stdout);
             }
             Shell::Zsh => {
+                println!("# Zsh completion script for sage");
+                println!("# Save this output to ~/.zsh/completions/_sage");
+                println!("# Make sure the directory exists: mkdir -p ~/.zsh/completions/");
+                println!("# Add to ~/.zshrc:");
+                println!("# fpath=(~/.zsh/completions $fpath)");
+                println!("# autoload -U compinit && compinit");
+                println!("#");
                 generate(Zsh, &mut cmd, "sage", &mut stdout);
             }
             Shell::Fish => {
+                println!("# Fish completion script for sage");
+                println!("# Save this output to ~/.config/fish/completions/sage.fish");
+                println!("# Make sure the directory exists: mkdir -p ~/.config/fish/completions/");
+                println!("#");
                 generate(Fish, &mut cmd, "sage", &mut stdout);
             }
         }
+
+        // Print a helpful message to stderr after generating the script
+        println!("\n# Generated completion script for {} shell", self.shell.to_string().to_lowercase());
+        println!("# See installation instructions with: sage completion --help");
 
         Ok(())
     }
