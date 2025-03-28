@@ -5,7 +5,7 @@ use inquire::Confirm;
 #[derive(Default)]
 pub struct CommitOptions {
     /// The message to commit with
-    pub message: Option<String>,
+    pub message: String,
     /// Whether to allow empty commits or not
     pub empty: bool,
     /// Push to remote after committing
@@ -56,8 +56,8 @@ pub async fn commit(opts: &CommitOptions) -> Result<()> {
         
         generated_message
     } else {
-        // If not using AI, message must be provided
-        opts.message.clone().ok_or_else(|| anyhow::anyhow!("Commit message is required when not using AI"))?
+        // If not using AI, use the provided message
+        opts.message.clone()
     };
 
     // We will now create the commit.
