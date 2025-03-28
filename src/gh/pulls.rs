@@ -1,5 +1,5 @@
 use crate::errors::GitHubError;
-use crate::gh;
+use crate::{gh, git};
 use anyhow::Result;
 use octocrab::models::pulls::PullRequest;
 
@@ -120,4 +120,18 @@ pub async fn get_checks(owner: &str, repo: &str, pr_number: u64) -> Result<serde
         .map_err(map_github_error)?;
 
     Ok(response)
+}
+
+/// Gets a pull request by branch name
+pub async fn get_by_branch(branch: &str) -> Result<Option<PullRequest>> {
+    // Get the owner and repo name from the remote URL
+    let (owner, repo) = git::repo::owner_repo()?;
+    let pr_number = get_pr_number(&owner, &repo, &branch).await?;
+    match pr_number {
+        Some(number) => {
+            let pull_request = get_pull_request(&owner, &repo, number).await?;
+            Ok(Some(pull_request))
+        }
+        None => Ok(None)
+    }
 }

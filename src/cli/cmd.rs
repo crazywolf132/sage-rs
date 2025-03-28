@@ -8,9 +8,9 @@ use crate::cli::list;
 use crate::cli::completion;
 use crate::cli::pr;
 use crate::cli::sync;
+use crate::cli::clean;
 
 use clap::Parser;
-
 
 #[derive(Parser, Debug)]
 pub enum Cmd {
@@ -66,5 +66,8 @@ EXAMPLES:
 
     /// Synchronize the repository with the remote
     Sync(sync::SyncArgs),
+
+    /// Cleans up all dead branches
+    Clean(clean::CleanArgs),
 }
 
