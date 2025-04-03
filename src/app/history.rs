@@ -5,8 +5,11 @@ use colored::Colorize;
 /// history will show the history of commits
 pub fn history() -> Result<()> {
     // Get the commits
-    let commits = git::list::commits()?;
+    let mut commits = git::list::commits()?;
     let current_branch = git::branch::current()?;
+
+    // Reverse the commits so that the latest commits are at the bottom
+    commits.reverse();
 
     println!(
         "{} {}",
