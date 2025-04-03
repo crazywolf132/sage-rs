@@ -194,3 +194,15 @@ pub fn diff() -> Result<String> {
     Ok(stdout)
     
 }
+
+pub fn fetch_branch(branch_name: &str) -> Result<()> {
+    let output = Command::new("git")
+        .args(["fetch", "origin", branch_name])
+        .output()?;
+
+    if !output.status.success() {
+        return Err(anyhow!("Failed to fetch branch {}", branch_name));
+    }
+
+    Ok(())
+}

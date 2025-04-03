@@ -1,6 +1,6 @@
-use colored::Colorize;
-use colored::ColoredString;
 use anyhow::{anyhow, Result};
+use colored::ColoredString;
+use colored::Colorize;
 
 pub fn hex(text: &str, hex: &str) -> ColoredString {
     let rgb = hex_to_rgb(hex).unwrap();
@@ -9,6 +9,10 @@ pub fn hex(text: &str, hex: &str) -> ColoredString {
 
 pub fn sage(text: &str) -> ColoredString {
     hex(text, "#8EA58C")
+}
+
+pub fn gray(text: &str) -> ColoredString {
+    hex(text, "#6B737C")
 }
 
 pub fn blue(text: &str) -> ColoredString {
@@ -29,7 +33,15 @@ fn hex_to_rgb(hex: &str) -> Result<(u8, u8, u8)> {
     }
 
     if hex.len() == 3 {
-        hex = format!("{}{}{}{}{}{}", &hex.chars().nth(0).unwrap(), &hex.chars().nth(0).unwrap(), &hex.chars().nth(1).unwrap(), &hex.chars().nth(1).unwrap(), &hex.chars().nth(2).unwrap(), &hex.chars().nth(2).unwrap());
+        hex = format!(
+            "{}{}{}{}{}{}",
+            &hex.chars().nth(0).unwrap(),
+            &hex.chars().nth(0).unwrap(),
+            &hex.chars().nth(1).unwrap(),
+            &hex.chars().nth(1).unwrap(),
+            &hex.chars().nth(2).unwrap(),
+            &hex.chars().nth(2).unwrap()
+        );
     }
 
     let r_val = u8::from_str_radix(&hex[0..2], 16)?;
@@ -41,6 +53,7 @@ fn hex_to_rgb(hex: &str) -> Result<(u8, u8, u8)> {
 
 pub trait ColorizeExt {
     fn sage(&self) -> ColoredString;
+    fn gray(&self) -> ColoredString;
     fn blue(&self) -> ColoredString;
     fn url(&self) -> ColoredString;
 }
@@ -48,6 +61,9 @@ pub trait ColorizeExt {
 impl ColorizeExt for str {
     fn sage(&self) -> ColoredString {
         sage(self)
+    }
+    fn gray(&self) -> ColoredString {
+        gray(self)
     }
     fn blue(&self) -> ColoredString {
         blue(self)
@@ -57,3 +73,6 @@ impl ColorizeExt for str {
         <str as ColorizeExt>::blue(self).underline()
     }
 }
+
+#[cfg(test)]
+mod tests;

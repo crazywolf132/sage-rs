@@ -76,3 +76,40 @@ pub fn commit(message: &str, empty: bool) -> Result<()> {
     }
     Err(anyhow!("failed to create commit message"))
 }
+
+/// Create a temporary WIP commit with all current changes
+pub fn create_wip_commit() -> Result<()> {
+    // First add all changes
+    let add = Command::new("git")
+        .args(["add", "."])
+        .output()?;
+
+    if !add.status.success() {
+        return Err(anyhow!("Failed to stage changes for WIP commit"));
+    }
+
+    // Create the WIP commit
+    let commit = Command::new("git")
+        .args(["commit", "-m", "[SAGE WIP] Temporary commit for sync"])
+        .output()?;
+
+    if !commit.status.success() {
+        return Err(anyhow!("Failed to create WIP commit"));
+    }
+
+    Ok(())
+}
+
+/// Pop the most recent WIP commit but keep the changes
+pub fn pop_wip_commit() -> Result<()> {
+    // Reset the WIP commit but keep changes
+    let reset = Command::new("git")
+        .args(["reset", "--soft", "HEAD~1"])
+        .output()?;
+
+    if !reset.status.success() {
+        return Err(anyhow!("Failed to pop WIP commit"));
+    }
+
+    Ok(())
+}

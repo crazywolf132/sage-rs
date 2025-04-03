@@ -9,3 +9,4 @@ pub mod status;
 pub mod switch;
 pub mod sync;
 pub mod clean;
+pub mod history;

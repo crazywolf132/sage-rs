@@ -1,22 +1,24 @@
+use crate::cli::clean;
 use crate::cli::clone;
 use crate::cli::commit;
+use crate::cli::completion;
+use crate::cli::history;
+use crate::cli::list;
+use crate::cli::pr;
+use crate::cli::push;
 use crate::cli::start;
 use crate::cli::status;
-use crate::cli::push;
 use crate::cli::switch;
-use crate::cli::list;
-use crate::cli::completion;
-use crate::cli::pr;
 use crate::cli::sync;
-use crate::cli::clean;
 
 use clap::Parser;
 
 #[derive(Parser, Debug)]
 pub enum Cmd {
-
     /// Start a new feature branch
-    #[clap(long_about = "Creates and switches to a new feature branch while ensuring you have the latest changes
+    #[clap(
+        alias = "s",
+        long_about = "Creates and switches to a new feature branch while ensuring you have the latest changes
 from the remote repository. This command performs several git operations automatically:
 
 1. Verifies you're in a git repository
@@ -32,11 +34,14 @@ preventing future merge conflicts and keeping your feature branch up-to-date.
 
 EXAMPLES:
   sage start new-feature
-  sage start bugfix/issue-123 --parent release/v2.0")]
+  sage start bugfix/issue-123 --parent release/v2.0"
+    )]
     Start(start::StartArgs),
 
     /// Commit changes to the repository with optional AI-generated messages and push capability
-    #[clap(alias = "c", long_about = "Creates a commit with your changes and optionally pushes to the remote repository.
+    #[clap(
+        alias = "c",
+        long_about = "Creates a commit with your changes and optionally pushes to the remote repository.
 This command streamlines the git commit workflow by:
 
 1. Verifying you're in a git repository
@@ -56,11 +61,13 @@ EXAMPLES:
   sage commit \"fix: resolve login issue\"
   sage commit \"update documentation\" --push
   sage commit \"empty commit for CI trigger\" --empty
-  sage commit \"initial commit\" --ai")]
+  sage commit \"initial commit\" --ai"
+    )]
     Commit(commit::Commit),
-    
+
     /// Clone a repository from GitHub
-    #[clap(long_about = "Clones a GitHub repository using a simplified syntax. This command:
+    #[clap(
+        long_about = "Clones a GitHub repository using a simplified syntax. This command:
 
 1. Validates the repository name format (owner/repo)
 2. Checks if the target directory already exists to prevent overwriting
@@ -73,11 +80,14 @@ You can choose between HTTPS (default) or SSH protocols with the --ssh flag.
 
 EXAMPLES:
   sage clone octocat/Hello-World
-  sage clone rust-lang/rust --ssh")]
+  sage clone rust-lang/rust --ssh"
+    )]
     Clone(clone::CloneArgs),
 
     /// Show the status of the repository
-    #[clap(alias = "s", long_about = "Displays a comprehensive view of your repository's current state, showing:
+    #[clap(
+        alias = "ss",
+        long_about = "Displays a comprehensive view of your repository's current state, showing:
 
 1. Verifies you're in a git repository
 2. Shows your current branch name and its relationship to the remote
@@ -94,11 +104,14 @@ in the git workflow (staged, unstaged, or untracked).
 
 EXAMPLES:
   sage status
-  sage s")]
+  sage s"
+    )]
     Status(status::StatusArgs),
 
     /// Push the current branch to remote
-    #[clap(alias = "p", long_about = "Pushes your current branch to the remote repository with proper tracking setup.
+    #[clap(
+        alias = "p",
+        long_about = "Pushes your current branch to the remote repository with proper tracking setup.
 This command streamlines the git push workflow by:
 
 1. Verifying you're in a git repository
@@ -117,11 +130,14 @@ updating a feature branch after rebasing.
 EXAMPLES:
   sage push              # Push current branch to remote
   sage push --force      # Force push current branch to remote
-  sage p                 # Using the alias")]
+  sage p                 # Using the alias"
+    )]
     Push(push::PushArgs),
 
     /// Switch to a different branch
-    #[clap(alias = "sw", long_about = "Switches to an existing branch with validation checks to prevent common errors.
+    #[clap(
+        alias = "sw",
+        long_about = "Switches to an existing branch with validation checks to prevent common errors.
 This command performs several operations to ensure a safe branch switch:
 
 1. Verifies you're in a git repository
@@ -138,11 +154,14 @@ EXAMPLES:
   sage switch feature-branch
   sage switch origin/feature-branch
   sage sw hotfix/issue-123
-  sage switch          # Switches to main branch")]
+  sage switch          # Switches to main branch"
+    )]
     Switch(switch::SwitchArgs),
 
     /// List all branches in the repository with status information
-    #[clap(alias = "l", long_about = "Displays a comprehensive list of all local branches in the repository with detailed status information:
+    #[clap(
+        alias = "l",
+        long_about = "Displays a comprehensive list of all local branches in the repository with detailed status information:
 
 1. Verifies you're in a git repository
 2. Lists all local branches sorted by most recent commit date
@@ -162,11 +181,13 @@ or resolving divergence).
 
 EXAMPLES:
   sage list
-  sage l")]
+  sage l"
+    )]
     List(list::ListArgs),
-    
+
     /// Generate shell completions for Bash, Zsh, or Fish
-    #[clap(long_about = "Generates shell completion scripts that enable tab-completion for sage commands and arguments.
+    #[clap(
+        long_about = "Generates shell completion scripts that enable tab-completion for sage commands and arguments.
 This command outputs completion scripts to stdout, which you can redirect to the appropriate location for your shell:
 
 1. Generates a completion script for the specified shell (Bash, Zsh, or Fish)
@@ -199,11 +220,13 @@ Fish:
 EXAMPLES:
   sage completion bash
   sage completion zsh
-  sage completion fish")]
+  sage completion fish"
+    )]
     Completion(completion::CompletionArgs),
 
     /// GitHub Pull Request commands
-    #[clap(long_about = "Provides commands for interacting with GitHub Pull Requests, allowing you to:
+    #[clap(
+        long_about = "Provides commands for interacting with GitHub Pull Requests, allowing you to:
 
 1. Checkout pull requests locally for review and testing
 2. View detailed information about pull requests including status, description, and CI checks
@@ -217,11 +240,13 @@ EXAMPLES:
   sage pr checkout 123                  # Checkout PR #123 to a local branch
   sage pr checkout 123 feature/test     # Checkout PR #123 to a specific branch name
   sage pr status                        # Show status of PR associated with current branch
-  sage pr status 456                    # Show status of PR #456")]
+  sage pr status 456                    # Show status of PR #456"
+    )]
     Pr(pr::PrArgs),
 
     /// Synchronize the repository with the remote
-    #[clap(long_about = "Synchronizes your current branch with the default branch (main/master) while preserving your changes.
+    #[clap(
+        long_about = "Synchronizes your current branch with the default branch (main/master) while preserving your changes.
 This command performs several git operations automatically:
 
 1. Verifies you're in a git repository
@@ -241,10 +266,14 @@ reducing the likelihood of complex merge conflicts later. It's particularly usef
 feature branches that need to incorporate ongoing changes from the main codebase.
 
 EXAMPLES:
-  sage sync")]
+  sage sync"
+    )]
     Sync(sync::SyncArgs),
 
     /// Cleans up all dead branches
     Clean(clean::CleanArgs),
-}
 
+    /// History of commits
+    #[clap(alias = "h")]
+    History(history::History),
+}
