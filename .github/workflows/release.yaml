@@ -158,6 +158,9 @@ jobs:
             exit 1
           fi
           
+          # Update Cargo.lock file
+          cargo update -p sage
+          
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Create and push tag
@@ -170,7 +173,7 @@ jobs:
           git config --local user.name "github-actions[bot]"
           
           # Commit version bump
-          git add Cargo.toml
+          git add Cargo.toml Cargo.lock
           git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
           
           # Create and push tag
