@@ -9,6 +9,7 @@ use crate::cli::completion;
 use crate::cli::pr;
 use crate::cli::sync;
 use crate::cli::clean;
+use crate::cli::history;
 
 use clap::Parser;
 
@@ -246,5 +247,9 @@ EXAMPLES:
 
     /// Cleans up all dead branches
     Clean(clean::CleanArgs),
+
+    /// History of commits
+    #[clap(alias = "h")]
+    History(history::History),
 }
 
