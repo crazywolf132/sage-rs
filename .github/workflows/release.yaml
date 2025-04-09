@@ -152,11 +152,9 @@ jobs:
             exit 1
           fi
           
-          # Update Cargo.toml with error handling
-          if ! sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" Cargo.toml; then
-            echo "Error: Failed to update version in Cargo.toml"
-            exit 1
-          fi
+          # Use the update_version.sh script to update the version
+          chmod +x ./scripts/update_version.sh
+          ./scripts/update_version.sh "$NEW_VERSION"
           
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
@@ -170,13 +168,21 @@ jobs:
           git config --local user.name "github-actions[bot]"
           
           # Commit version bump
-          git add Cargo.toml
-          git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
-          
-          # Create and push tag
-          git tag "$TAG"
-          git push origin "$TAG"
-          git push origin HEAD:${{ github.ref }}
+          if [ "${{ needs.analyze-commits.outputs.release_type }}" = "nightly" ]; then
+            # For nightly releases, don't commit the changed files
+            # Just create and push the tag
+            git tag "$TAG"
+            git push origin "$TAG"
+          else
+            # For regular releases, commit the changes and push
+            git add Cargo.toml Cargo.lock
+            git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
+            
+            # Create and push tag
+            git tag "$TAG"
+            git push origin "$TAG"
+            git push origin HEAD:${{ github.ref }}
+          fi
           
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
