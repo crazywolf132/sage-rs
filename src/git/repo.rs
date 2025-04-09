@@ -194,3 +194,22 @@ pub fn diff() -> Result<String> {
     Ok(stdout)
     
 }
+
+/// get the commit log history for the current branch
+pub fn commit_log() -> Result<String> {
+    // Get the most recent commits (limited to 20)
+    let output = Command::new("git")
+        .arg("log")
+        .arg("--pretty=format:%h %s (%an)")
+        .arg("-n")
+        .arg("20")
+        .output()?;
+    
+    if !output.status.success() {
+        return Err(anyhow!("Failed to get commit log: {}", 
+            String::from_utf8_lossy(&output.stderr)));
+    }
+    
+    let stdout = String::from_utf8(output.stdout)?;
+    Ok(stdout)
+}

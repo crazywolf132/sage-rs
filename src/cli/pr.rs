@@ -98,7 +98,7 @@ pub struct PrCreateArgs {
     pub draft: Option<bool>,
     
     /// Use AI to generate title and body
-    #[clap(long, default_value = "false")]
+    #[clap(short = 'a', long, default_value = "false")]
     pub ai: bool,
 }
 

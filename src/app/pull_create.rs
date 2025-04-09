@@ -41,29 +41,9 @@ pub async fn pull_create(
             parts[1].trim().to_string()
         } else {
             // If no multiline commit message, generate a more detailed PR description
-            let prompt = format!(
-                "You are writing a GitHub pull request description for a change with the title: \"{}\".
-                
-                Here's information about the changes in this PR:
-                ```diff
-                {}
-                ```
-                
-                Follow these guidelines for an effective PR description:
-                
-                1. Start with a brief summary of what this PR achieves (1-2 sentences).
-                2. Explain the problem this PR solves and why it's important.
-                3. Highlight key changes or new features introduced.
-                4. If applicable, mention any testing performed or areas that would benefit from extra review.
-                5. If there are any breaking changes, dependencies, or deployment considerations, note them.
-                
-                Format your description professionally, using proper Markdown formatting with headers and lists where appropriate.
-                Be concise yet thorough - aim for clarity and completeness.
-                
-                Your response should ONLY include the PR description text, no additional explanations or comments.",
-                ai_title,
-                git::repo::diff().unwrap_or_else(|_| "Changes not available".to_string())
-            );
+            // Use commit log instead of diff for PR description
+            let commit_log = git::repo::commit_log()?;
+            let prompt = ai::prompts::pr_description_prompt(&ai_title, &commit_log);
             ai::ask(&prompt).await?
         };
         
