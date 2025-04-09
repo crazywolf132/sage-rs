@@ -1,0 +1,6 @@
+# Use union merge driver for Cargo.lock to reduce conflicts
+Cargo.lock merge=union
+
+# Use union merge driver for package version in Cargo.toml
+# This tells Git to accept both changes when there's a conflict in the version field
+Cargo.toml merge=union
