@@ -1,22 +1,11 @@
 use crate::{errors, git};
 use anyhow::Result;
 
-pub fn start(name: String) -> Result<()> {
+pub fn start(name: &str) -> Result<()> {
     // Check to ensure we are in a repo first.
     if !git::repo::is_repo()? {
         return Err(errors::GitError::NotARepository.into());
     }
-
-    let status = git::status::status()?;
-
-    // Check if there are unstaged changes and stash them if needed
-    let stashed = if status.is_dirty() {
-        println!("Detected unstaged changes. Temporarily stashing them...");
-        git::stash::stash_changes()?;
-        true
-    } else {
-        false
-    };
 
     // Get the default branch (usually main or master)
     // If we can't determine it, default to "main"
@@ -29,15 +18,8 @@ pub fn start(name: String) -> Result<()> {
     git::repo::pull(&default_branch, true)?;
 
     // Create a new branch if it doesn't exist
-    git::branch::switch(&name, true)?;
-    git::branch::set_upstream(&name)?;
-
-    // Restore stashed changes if we stashed them earlier
-    if stashed {
-        println!("Restoring your changes on the new branch...");
-        git::stash::apply_stash()?;
-    }
+    git::branch::switch(name, true)?;
+    git::branch::set_upstream(name)?;
 
     Ok(())
 }
-

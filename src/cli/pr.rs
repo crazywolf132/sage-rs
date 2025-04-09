@@ -96,6 +96,10 @@ pub struct PrCreateArgs {
     /// Toggle the PR as draft
     #[clap(long)]
     pub draft: Option<bool>,
+    
+    /// Use AI to generate title and body
+    #[clap(short = 'a', long, default_value = "false")]
+    pub ai: bool,
 }
 
 impl Run for PrArgs {
@@ -130,8 +134,8 @@ async fn pr_status(args: &PrStatusArgs) -> Result<()> {
 }
 
 async fn pr_create(args: &PrCreateArgs) -> Result<()> {
-    // Use interactive mode if any required fields are missing
-    let interactive = args.title.is_none() || args.body.is_none();
+    // Use interactive mode if any required fields are missing and AI is not enabled
+    let interactive = (args.title.is_none() || args.body.is_none()) && !args.ai;
     
     app::pull_create::pull_create(
         args.title.clone(),
@@ -140,6 +144,7 @@ async fn pr_create(args: &PrCreateArgs) -> Result<()> {
         args.head_branch.clone(),
         args.draft.unwrap_or(false),
         interactive,
+        args.ai,
     )
     .await?;
     Ok(())
