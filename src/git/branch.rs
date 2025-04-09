@@ -2,6 +2,7 @@ use anyhow::{anyhow, Context, Result};
 use auth_git2::GitAuthenticator;
 use git2::{BranchType, Repository};
 use std::process::Command;
+use crate::git;
 
 /// current_branch returns the current branch name
 pub fn current() -> Result<String> {
@@ -336,4 +337,21 @@ pub fn delete_remote(branch_name: &str) -> Result<()> {
             String::from_utf8_lossy(&result.stderr)
         ))
     }
+}
+
+pub fn needs_push() -> Result<bool> {
+    let status = git::status::status()?;
+    Ok(status.needs_push())
+}
+
+pub fn abort_rebase() -> Result<()> {
+    let output = Command::new("git")
+        .args(["rebase", "--abort"])
+        .output()?;
+
+    if !output.status.success() {
+        return Err(anyhow!("Failed to abort rebase"));
+    }
+
+    Ok(())
 }

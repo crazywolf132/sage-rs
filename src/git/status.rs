@@ -714,6 +714,16 @@ impl GitStatus {
         status.push(']');
         status
     }
+
+    /// Check if we need to push changes to remote
+    pub fn needs_push(&self) -> bool {
+        self.ahead_count > 0
+    }
+
+    /// Check if we need to pull changes from remote
+    pub fn needs_pull(&self) -> bool {
+        self.behind_count > 0
+    }
 }
 
 /// Get the current git status using git2 library
@@ -1066,6 +1076,11 @@ pub fn lightweight_status() -> Result<LightweightStatus> {
     status.has_stashes = has_stash(&repo)?;
     
     Ok(status)
+}
+
+pub fn is_clean() -> Result<bool> {
+    let status = status()?;
+    Ok(status.is_clean())
 }
 
 #[cfg(test)]
