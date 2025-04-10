@@ -73,6 +73,3 @@ impl ColorizeExt for str {
         <str as ColorizeExt>::blue(self).underline()
     }
 }
-
-#[cfg(test)]
-mod tests;

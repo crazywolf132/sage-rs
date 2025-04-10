@@ -187,6 +187,23 @@ sage pr todos 42
 sage pr merge 42 --method squash
 ```
 
+## Development Process 🛠️
+
+### Versioning
+
+Sage uses [CommitSense](https://github.com/marketplace/actions/commitsense-ai-versioner/) for automated semantic versioning:
+
+- **AI-Powered Analysis**: Uses AI to interpret commit messages and determine version bumps
+- **Semantic Versioning**: Automatically suggests `major`, `minor`, or `patch` bumps based on commit content
+- **Automated Changelog**: Generates a detailed changelog for each release
+- **Conventional Commits**: For manual control, you can use conventional commits format:
+  - `feat: ...` for new features (minor version bump)
+  - `fix: ...` for bug fixes (patch version bump)
+  - `BREAKING CHANGE: ...` or `feat!: ...` for breaking changes (major version bump)
+  - `release: ...` to trigger a release build
+
+The GitHub Actions workflow automatically handles versioning based on commit analysis.
+
 ## Setting Things Up ⚙️
 
 ### Environment Variables
