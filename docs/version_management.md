@@ -4,13 +4,28 @@ To reduce merge conflicts with `Cargo.toml` and `Cargo.lock` files, please follo
 
 ## Automated Versioning with CommitSense
 
-As of 10/04/2025, Sage uses [CommitSense](https://github.com/marketplace/actions/commitsense-ai-versioner/) for automated semantic versioning. CommitSense analyzes commit messages using AI to determine appropriate version bumps and generate changelogs.
+As of [current date], Sage uses [CommitSense](https://github.com/marketplace/actions/commitsense-ai-versioner/) for automated semantic versioning. CommitSense analyzes commit messages using AI to determine appropriate version bumps and generate changelogs.
 
 Benefits of the new system:
 - Automatic version determination based on commit content
 - AI-powered semantic analysis of commits
 - Automated changelog generation
 - Reduced manual intervention in the release process
+
+### How It Works
+
+CommitSense integrates into our GitHub Actions workflow (`.github/workflows/release.yaml`) and:
+
+1. Analyzes all commits since the last release
+2. Uses AI to understand the semantic meaning of changes
+3. Suggests an appropriate version bump (`major`, `minor`, `patch`)
+4. Optionally provides a full semantic version
+5. Generates a comprehensive changelog in Markdown format
+
+### Required GitHub Secret
+
+For CommitSense to function, the repository needs:
+- `OPENAI_API_KEY`: OpenAI API key for commit analysis
 
 ### Conventional Commits (Optional)
 
