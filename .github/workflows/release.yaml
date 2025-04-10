@@ -65,11 +65,11 @@ jobs:
       - name: Run CommitSense
         id: commitsense
         if: steps.changes.outputs.has_changes == 'true'
-        uses: foxycorps/commit-sense@0.1.4
+        uses: foxycorps/commit-sense@0.1.5
         with:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-          project_type: rust
-          write: "false"  # Dry run mode, we'll manually update the version
+          project-type: rust
+          write: "true"
 
       # Determine release type (nightly vs. regular release)
       - name: Determine release type
