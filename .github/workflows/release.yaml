@@ -44,8 +44,9 @@ jobs:
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           project-type: rust
-          write: "true"  # Enable write mode to update version and generate changelog
-          nightly: ${{ steps.check-event.outputs.is_nightly }}  # Use nightly mode for scheduled runs
+          write: "true"
+          nightly: ${{ steps.check-event.outputs.is_nightly }}
+          tag-pattern: "v*.*.*"  # Use tags instead of commit messageselease commit format
       
       - name: Debug CommitSense outputs
         run: |
@@ -92,9 +93,16 @@ jobs:
           # For regular releases, commit the changes
           if [ "${{ steps.check-event.outputs.is_nightly }}" = "false" ]; then
             # Commit the version changes and changelog
+            # IMPORTANT: Always include Cargo.lock to ensure dependency consistency
             git add Cargo.toml Cargo.lock CHANGELOG.md
-            git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
-            git push origin HEAD:${{ github.ref }}
+            
+            # Check if there are actual changes to commit
+            if git diff --staged --quiet; then
+              echo "No changes to commit"
+            else
+              git commit -m "release: bump version to $NEW_VERSION [skip ci]"
+              git push origin HEAD:${{ github.ref }}
+            fi
           fi
           
           # Create and push tag for all releases
