@@ -5,6 +5,7 @@ on:
     branches: [ main ]
   schedule:
     - cron: '0 0 * * *'  # Run at midnight UTC every day
+  workflow_dispatch:  # Allow manual triggering
 
 # Add concurrency control
 concurrency:
@@ -18,8 +19,8 @@ jobs:
   analyze-commits:
     runs-on: ubuntu-latest
     outputs:
-      release_type: ${{ steps.release-type.outputs.type }}
-      version_bump: ${{ steps.release-type.outputs.bump }}
+      release_type: ${{ steps.determine-release-type.outputs.type }}
+      version_bump: ${{ steps.commitsense.outputs.bump }}
       has_changes: ${{ steps.changes.outputs.has_changes }}
     steps:
       - uses: actions/checkout@v4
@@ -31,21 +32,48 @@ jobs:
         run: |
           # Get the last release commit (either release or nightly)
           LAST_RELEASE=$(git for-each-ref --sort=-creatordate --format '%(refname)' refs/tags | head -n 1 || echo "")
+          
+          # Debug output
+          echo "Last release tag found: $LAST_RELEASE"
+          
           if [ -z "$LAST_RELEASE" ]; then
+            echo "No previous release tags found - proceeding with build"
             echo "has_changes=true" >> $GITHUB_OUTPUT
             exit 0
           fi
           
+          # Extract tag name from refname
+          TAG_NAME=$(echo "$LAST_RELEASE" | sed 's|refs/tags/||')
+          echo "Last release tag name: $TAG_NAME"
+          
           # Check if there are any new commits since last release
-          CHANGES=$(git log $LAST_RELEASE..HEAD --oneline)
+          CHANGES=$(git log $TAG_NAME..HEAD --oneline)
+          
+          # Debug output
+          echo "Changes since last release:"
+          echo "$CHANGES"
+          
           if [ -n "$CHANGES" ]; then
+            echo "Found changes since last release - proceeding with build"
             echo "has_changes=true" >> $GITHUB_OUTPUT
           else
+            echo "No changes since last release - skipping build"
             echo "has_changes=false" >> $GITHUB_OUTPUT
           fi
 
+      # Run CommitSense to analyze commits and determine the version bump
+      - name: Run CommitSense
+        id: commitsense
+        if: steps.changes.outputs.has_changes == 'true'
+        uses: foxycorps/commitsense@v1
+        with:
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          project_type: rust
+          write: "false"  # Dry run mode, we'll manually update the version
+
+      # Determine release type (nightly vs. regular release)
       - name: Determine release type
-        id: release-type
+        id: determine-release-type
         if: steps.changes.outputs.has_changes == 'true'
         run: |
           # Get commits since last release or all commits if no release exists
@@ -56,42 +84,36 @@ jobs:
             COMMITS=$(git log $LAST_RELEASE..HEAD --format=%B)
           fi
           
-          # Look for release commit
-          if echo "$COMMITS" | grep -q "^release:"; then
-            # Determine version bump based on conventional commits
-            if echo "$COMMITS" | grep -q "^BREAKING CHANGE:" || echo "$COMMITS" | grep -q "!:"; then
-              echo "type=release" >> $GITHUB_OUTPUT
-              echo "bump=major" >> $GITHUB_OUTPUT
-            elif echo "$COMMITS" | grep -q "^feat:"; then
-              echo "type=release" >> $GITHUB_OUTPUT
-              echo "bump=minor" >> $GITHUB_OUTPUT
-            elif echo "$COMMITS" | grep -q "^fix:"; then
-              echo "type=release" >> $GITHUB_OUTPUT
-              echo "bump=patch" >> $GITHUB_OUTPUT
-            else
-              echo "type=release" >> $GITHUB_OUTPUT
-              echo "bump=patch" >> $GITHUB_OUTPUT
-            fi
+          # Check for release commit for backward compatibility
+          if echo "$COMMITS" | grep -q -E "^release:.*$|^release: .*$"; then
+            echo "Found explicit release commit"
+            echo "type=release" >> $GITHUB_OUTPUT
           else
-            # If no release commit, this is a nightly build
+            # If no release commit and this is a scheduled build, it's a nightly
             if [ "${{ github.event_name }}" = "schedule" ]; then
+              echo "Scheduled event - Nightly build"
               echo "type=nightly" >> $GITHUB_OUTPUT
-              echo "bump=none" >> $GITHUB_OUTPUT
+            # If manual trigger, treat as release
+            elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+              echo "Manual trigger - Release build"
+              echo "type=release" >> $GITHUB_OUTPUT  
+            # If regular push with version bump detected by CommitSense, it's a release
+            elif [ -n "${{ steps.commitsense.outputs.bump }}" ] && [ "${{ steps.commitsense.outputs.bump }}" != "none" ]; then
+              echo "CommitSense detected changes - Release build"
+              echo "type=release" >> $GITHUB_OUTPUT
             else
+              echo "No significant changes detected - Skipping"
               echo "type=skip" >> $GITHUB_OUTPUT
-              echo "bump=none" >> $GITHUB_OUTPUT
             fi
           fi
 
   update-version:
     needs: analyze-commits
-    if: needs.analyze-commits.outputs.release_type != 'skip'
+    if: needs.analyze-commits.outputs.release_type != 'skip' && needs.analyze-commits.outputs.has_changes == 'true'
     runs-on: ubuntu-latest
     outputs:
       new_version: ${{ steps.bump-version.outputs.new_version }}
       new_tag: ${{ steps.create-tag.outputs.tag }}
-      is_release: ${{ steps.check_release.outputs.is_release }}
-      has_changes: ${{ steps.check_changes.outputs.has_changes }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -120,7 +142,7 @@ jobs:
             # Remove any pre-release suffix for version calculations
             BASE_VERSION=$(echo "$CURRENT_VERSION" | cut -d'-' -f1)
             
-            # For release, bump version according to conventional commits
+            # For release, bump version according to CommitSense
             IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
             
             # Validate version components
@@ -140,8 +162,8 @@ jobs:
                 NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
                 ;;
               *)
-                echo "Error: Invalid version bump type"
-                exit 1
+                echo "No specific bump type, defaulting to patch"
+                NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
                 ;;
             esac
           fi
@@ -188,7 +210,7 @@ jobs:
 
   build-and-release:
     needs: [analyze-commits, update-version]
-    if: needs.analyze-commits.outputs.release_type != 'skip'
+    if: needs.analyze-commits.outputs.release_type != 'skip' && needs.analyze-commits.outputs.has_changes == 'true'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -253,20 +275,29 @@ jobs:
       - name: Generate changelog
         id: changelog
         run: |
-          # Get the last release tag with error handling
-          LAST_TAG=$(git for-each-ref --sort=-creatordate --format '%(refname)' refs/tags | head -n 1 | sed 's|refs/tags/||' || echo "")
+          # Try to use CommitSense-generated changelog if available
+          COMMIT_SENSE_OUTPUT=$(cat commitsense_output.md 2>/dev/null || echo "")
           
-          if [ -z "$LAST_TAG" ]; then
-            echo "No previous tags found, using all commits"
-            COMMITS=$(git log --format="* %s (%h)" --reverse)
+          if [ -n "$COMMIT_SENSE_OUTPUT" ]; then
+            echo "Using CommitSense-generated changelog"
+            COMMITS="$COMMIT_SENSE_OUTPUT"
           else
-            echo "Found last tag: $LAST_TAG"
-            COMMITS=$(git log ${LAST_TAG}..HEAD --format="* %s (%h)" --reverse)
-          fi
-          
-          if [ -z "$COMMITS" ]; then
-            echo "No new commits found, using placeholder"
-            COMMITS="* No changes in this release"
+            echo "Falling back to traditional changelog generation"
+            # Get the last release tag with error handling
+            LAST_TAG=$(git for-each-ref --sort=-creatordate --format '%(refname)' refs/tags | head -n 1 | sed 's|refs/tags/||' || echo "")
+            
+            if [ -z "$LAST_TAG" ]; then
+              echo "No previous tags found, using all commits"
+              COMMITS=$(git log --format="* %s (%h)" --reverse)
+            else
+              echo "Found last tag: $LAST_TAG"
+              COMMITS=$(git log ${LAST_TAG}..HEAD --format="* %s (%h)" --reverse)
+            fi
+            
+            if [ -z "$COMMITS" ]; then
+              echo "No new commits found, using placeholder"
+              COMMITS="* No changes in this release"
+            fi
           fi
           
           # Create changelog content with error handling
