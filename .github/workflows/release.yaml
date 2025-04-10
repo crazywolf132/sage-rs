@@ -65,7 +65,7 @@ jobs:
       - name: Run CommitSense
         id: commitsense
         if: steps.changes.outputs.has_changes == 'true'
-        uses: foxycorps/commit-sense@0.1.5
+        uses: foxycorps/commit-sense@0.1.6
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           project-type: rust
