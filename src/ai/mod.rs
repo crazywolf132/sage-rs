@@ -18,7 +18,7 @@ pub async fn ask(prompt: &str) -> Result<String> {
     
     // Create request
     let req = ChatCompletionRequest::new(
-        GPT4_O_MINI_2024_07_18.to_string(),
+        "o4-mini".to_string(),
         vec![
             chat_completion::ChatCompletionMessage {
                 role: chat_completion::MessageRole::user,
