@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [ 0.4.1] - 2025-04-21
+
+- Fix default AI model to be `o4-mini`
+- Enhance CI with improved commit message format and tag pattern
+
 ## [ 0.4.0] - 2025-04-10
 
 - Add version management guidelines and update scripts for handling Cargo files
