@@ -1,4 +1,6 @@
 use anyhow::{anyhow, Result};
+use colored::Colorize;
+use crate::git::hooks;
 use std::process::Command;
 
 /// list_branches returns a list of all local branches
@@ -58,23 +60,48 @@ pub fn is_clean() -> Result<bool> {
 }
 
 /// commit creates a new commit with message
-pub fn commit(message: &str, empty: bool) -> Result<()> {
+/// skip_hooks will bypass manual hook execution if true
+pub fn commit(message: &str, empty: bool, skip_hooks: bool) -> Result<()> {
+    // Run commit hooks manually (pre-commit and commit-msg) unless skipped
+    if !skip_hooks {
+        let hook_results = hooks::run_commit_hooks(message)?;
+        // Summarise hook results
+        for hr in &hook_results {
+            if hr.passed {
+                println!("{} {}", "✓".green(), hr.name);
+            } else {
+                // On failure, display full hook output and abort
+                if !hr.output.trim().is_empty() {
+                    println!("{}", hr.output);
+                }
+                return Err(anyhow!(format!("Hook {} failed", hr.name)));
+            }
+        }
+    }
+
+    // Create the commit with no-verify to skip built-in hook execution
     let mut cmd = Command::new("git");
-
-    cmd.arg("commit");
-    cmd.arg("-m");
-    cmd.arg(message);
-
+    cmd.arg("commit")
+        .arg("--no-verify")
+        .arg("-m")
+        .arg(message);
     if empty {
         cmd.arg("--allow-empty");
     }
 
     let res = cmd.output()?;
-
     if res.status.success() {
+        // Display git commit output if any
+        let stdout = String::from_utf8_lossy(&res.stdout);
+        if !stdout.trim().is_empty() {
+            println!("{}", stdout.trim());
+        }
         return Ok(());
     }
-    Err(anyhow!("failed to create commit message"))
+
+    // On failure, display error output
+    let stderr = String::from_utf8_lossy(&res.stderr);
+    Err(anyhow!(format!("failed to create commit message: {}", stderr.trim())))
 }
 
 /// Create a temporary WIP commit with all current changes
