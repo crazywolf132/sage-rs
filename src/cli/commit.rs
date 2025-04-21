@@ -33,6 +33,9 @@ pub struct Commit {
     #[clap(short = 'y', long = "yes")]
     /// Skip confirmation when using AI-generated commit message
     auto_confirm: bool,
+    #[clap(short = 's', long = "skip")]
+    /// Skip running git hooks before committing (uses --no-verify)
+    skip: bool,
 }
 
 impl Run for Commit {
@@ -43,6 +46,7 @@ impl Run for Commit {
         opts.push = self.push;
         opts.ai = self.ai;
         opts.auto_confirm = self.auto_confirm;
+        opts.skip = self.skip;
         
         // Validate that we either have a message or are using AI
         if !opts.ai && opts.message.is_empty() {

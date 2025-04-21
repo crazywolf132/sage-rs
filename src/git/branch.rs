@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Context, Result};
-use auth_git2::GitAuthenticator;
 use git2::{BranchType, Repository};
 use std::process::Command;
 use crate::git;

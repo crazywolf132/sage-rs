@@ -14,6 +14,8 @@ pub struct CommitOptions {
     pub ai: bool,
     /// Skip confirmation when using AI-generated commit message
     pub auto_confirm: bool,
+    /// Skip running git hooks before committing
+    pub skip: bool,
 }
 
 pub async fn commit(opts: &CommitOptions) -> Result<()> {
@@ -61,7 +63,7 @@ pub async fn commit(opts: &CommitOptions) -> Result<()> {
     };
 
     // We will now create the commit.
-    git::commit::commit(&message, opts.empty)?;
+    git::commit::commit(&message, opts.empty, opts.skip)?;
 
     if opts.push {
         let current_branch = git::branch::current()?;
