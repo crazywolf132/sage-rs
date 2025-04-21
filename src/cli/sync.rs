@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use crate::{app, git};
+use crate::errors;
 
 /// Arguments for the sync command
 #[derive(Parser, Debug)]
@@ -21,9 +22,14 @@ impl SyncArgs {
     pub async fn run(&self) -> Result<()> {
         match app::sync::sync() {
             Ok(_) => Ok(()),
-            Err(_) => {
-                // if there was an error doing this, we will try and give the user their changes back
-                // so as not to break their work.
+            Err(err) => {
+                // If this is not a git repository, propagate the error
+                if let Some(git_err) = err.downcast_ref::<errors::GitError>() {
+                    if matches!(git_err, errors::GitError::NotARepository) {
+                        return Err(err);
+                    }
+                }
+                // Otherwise, attempt to restore any stashed changes to avoid data loss
                 if git::stash::has_stash()? {
                     git::stash::apply_stash()?;
                 }
