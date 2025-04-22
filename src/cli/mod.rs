@@ -14,6 +14,7 @@ pub mod list;
 pub mod completion;
 pub mod pr;
 pub mod sync;
+pub mod nuke;
 pub mod clean;
 pub mod history;
 
@@ -39,6 +40,7 @@ impl Run for Cmd {
             Cmd::Completion(cmd) => cmd.run().await,
             Cmd::Pr(cmd) => cmd.run().await,
             Cmd::Sync(cmd) => cmd.run().await,
+            Cmd::Nuke(cmd) => cmd.run().await,
             Cmd::Clean(cmd) => cmd.run().await,
             Cmd::History(cmd) => cmd.run().await,
         }

@@ -3,7 +3,6 @@ use git2::Repository;
 use std::path::Path;
 use std::process::Command;
 
-
 /// is_repo returns if user is in an active repo
 pub fn is_repo() -> Result<bool> {
     let result = Command::new("git")
@@ -224,4 +223,37 @@ pub fn fetch_branch(branch_name: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Reset working directory to HEAD, discarding all changes.
+pub fn reset_hard_head() -> Result<()> {
+    let result = Command::new("git")
+        .arg("reset")
+        .arg("--hard")
+        .arg("HEAD")
+        .output()?;
+    if result.status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "Failed to reset changes: {}",
+            String::from_utf8_lossy(&result.stderr)
+        ))
+    }
+}
+
+/// Clean untracked files and directories (including ignored files).
+pub fn clean_untracked() -> Result<()> {
+    let result = Command::new("git")
+        .arg("clean")
+        .arg("-fdx")
+        .output()?;
+    if result.status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "Failed to clean untracked files: {}",
+            String::from_utf8_lossy(&result.stderr)
+        ))
+    }
 }
