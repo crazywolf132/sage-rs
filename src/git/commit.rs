@@ -128,3 +128,55 @@ pub fn hash() -> Result<String> {
     let hash = String::from_utf8_lossy(&output.stdout);
     Ok(hash.trim().to_string())
 }
+
+/// Get a list of commit SHAs unique to the current branch (not in base)
+pub fn commits_unique_to_current_branch(base: &str) -> Result<Vec<String>> {
+    let current = current_branch()?;
+    let range = format!("{}..{}", base, current);
+    let output = Command::new("git")
+        .arg("rev-list")
+        .arg(&range)
+        .output()?;
+    if !output.status.success() {
+        return Err(anyhow!("Failed to get unique commits: {}", String::from_utf8_lossy(&output.stderr)));
+    }
+    let stdout = String::from_utf8(output.stdout)?;
+    Ok(stdout.lines().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect())
+}
+
+/// Get the diff for a specific commit
+pub fn commit_diff(commit: &str) -> Result<String> {
+    let output = Command::new("git")
+        .arg("show")
+        .arg("--stat")
+        .arg("--patch")
+        .arg(commit)
+        .output()?;
+    if !output.status.success() {
+        return Err(anyhow!("Failed to get diff for commit {}: {}", commit, String::from_utf8_lossy(&output.stderr)));
+    }
+    let stdout = String::from_utf8(output.stdout)?;
+    Ok(stdout)
+}
+
+/// Summarize a commit: one-line header and diffstat (no patch)
+pub fn commit_summary(commit: &str) -> Result<String> {
+    let output = Command::new("git")
+        .arg("show")
+        .arg("--stat")
+        .arg("--pretty=oneline")
+        .arg("--no-patch")
+        .arg(commit)
+        .output()?;
+    if !output.status.success() {
+        return Err(anyhow!("Failed to summarize commit {}: {}", commit, String::from_utf8_lossy(&output.stderr)));
+    }
+    let mut summary = String::from_utf8(output.stdout)?;
+    // Truncate summary if too long
+    let max_len = 500;
+    if summary.len() > max_len {
+        summary.truncate(max_len);
+        summary.push_str("... [truncated]");
+    }
+    Ok(summary)
+}
