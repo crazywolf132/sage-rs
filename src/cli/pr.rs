@@ -54,6 +54,7 @@ EXAMPLES:
 
     Status(PrStatusArgs),
     /// Create a new PR
+    #[clap(alias = "c", long_about = "Creates a new pull request with optional AI-generated title and body.")]
     Create(PrCreateArgs),
 }
 

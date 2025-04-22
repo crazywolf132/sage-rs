@@ -1,8 +1,50 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use git2::Repository;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
+/// Determine the primary remote to use for fetching default branches.
+/// Prefers "upstream" if it exists; otherwise falls back to "origin".
+pub fn primary_remote() -> Result<String> {
+    // List all remote names
+    let output = Command::new("git").arg("remote").output()?;
+    if !output.status.success() {
+        return Ok("origin".to_string());
+    }
+    let remotes = String::from_utf8(output.stdout)?;
+    for line in remotes.lines() {
+        if line.trim() == "upstream" {
+            return Ok("upstream".to_string());
+        }
+    }
+    Ok("origin".to_string())
+}
+
+/// Compute ahead and behind counts between a local branch and a remote/default branch.
+/// Returns (ahead, behind) where:
+/// ahead  = commits present on local but not in remote
+/// behind = commits present in remote but not in local
+pub fn ahead_behind(local: &str, remote: &str) -> Result<(usize, usize)> {
+    // rev-list --left-right --count <remote>...<local>
+    let revspec = format!("{}...{}", remote, local);
+    let output = Command::new("git")
+        .arg("rev-list")
+        .arg("--left-right")
+        .arg("--count")
+        .arg(&revspec)
+        .output()?;
+    if !output.status.success() {
+        return Err(anyhow!(
+            "Failed to get ahead/behind counts: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    let stdout = String::from_utf8(output.stdout)?;
+    let parts: Vec<&str> = stdout.trim().split_whitespace().collect();
+    let behind = parts.get(0).and_then(|s| s.parse().ok()).unwrap_or(0);
+    let ahead = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+    Ok((ahead, behind))
+}
 
 /// is_repo returns if user is in an active repo
 pub fn is_repo() -> Result<bool> {
@@ -39,12 +81,8 @@ pub fn clone(repo: &str, use_ssh: bool) -> Result<()> {
 
 /// stage_all is used to stage all Changes
 pub fn stage_all() -> Result<()> {
-    let result = Command::new("git")
-        .arg("add")
-        .arg("-A")
-        .arg(".")
-        .output()?;
-    
+    let result = Command::new("git").arg("add").arg("-A").arg(".").output()?;
+
     if result.status.success() {
         Ok(())
     } else {
@@ -52,15 +90,17 @@ pub fn stage_all() -> Result<()> {
     }
 }
 
-/// default_branch returns the default branch
+/// default_branch returns the default branch name from the primary remote
 pub fn default_branch() -> Result<String> {
-    let result: std::process::Output = Command::new("git")
+    let remote = primary_remote()?;
+    let refname = format!("refs/remotes/{}/HEAD", remote);
+    let result = Command::new("git")
         .arg("symbolic-ref")
-        .arg("refs/remotes/origin/HEAD")
+        .arg(&refname)
         .output()?;
-
     let stdout = String::from_utf8(result.stdout)?;
-    Ok(stdout.trim().replace("refs/remotes/origin/", "").to_string())
+    let prefix = format!("refs/remotes/{}/", remote);
+    Ok(stdout.trim().replace(&prefix, "").to_string())
 }
 
 /// fetch_remote will fetch the remote
@@ -85,33 +125,38 @@ pub fn pull(branch: &str, fast_forward: bool) -> Result<()> {
         .arg("--all")
         .arg("--prune")
         .output()?;
-        
+
     if !fetch_result.status.success() {
-        return Err(anyhow!("Failed to fetch latest changes: {}", 
-            String::from_utf8_lossy(&fetch_result.stderr)));
+        return Err(anyhow!(
+            "Failed to fetch latest changes: {}",
+            String::from_utf8_lossy(&fetch_result.stderr)
+        ));
     }
-    
-    // Now pull the changes
+
+    // Now pull the changes from the primary remote
     let mut cmd = Command::new("git");
     cmd.arg("pull");
-    cmd.arg("origin");
+    let remote = primary_remote()?;
+    cmd.arg(&remote);
     cmd.arg(branch);
 
     if fast_forward {
         cmd.arg("--ff-only");
     }
-    
+
     // Add some additional flags to ensure we get all changes
     cmd.arg("--rebase=false"); // Don't rebase, just merge
-    
+
     let result = cmd.output()?;
 
     if result.status.success() {
         return Ok(());
     }
 
-    return Err(anyhow!("Failed to pull latest changes: {}", 
-        String::from_utf8_lossy(&result.stderr)));
+    return Err(anyhow!(
+        "Failed to pull latest changes: {}",
+        String::from_utf8_lossy(&result.stderr)
+    ));
 }
 
 /// get the owner and repo name from the remote URL
@@ -122,13 +167,13 @@ pub fn owner_repo() -> Result<(String, String)> {
         .arg("origin")
         .output()?;
 
-    
     // The repo url could be SSH or it could be HTTPS
     // We are going to handle both cases here.
 
     let remote_url = String::from_utf8(result.stdout)?.trim().to_string();
     if remote_url.starts_with("git@github.com:") {
-        let parts = remote_url.trim_start_matches("git@github.com:")
+        let parts = remote_url
+            .trim_start_matches("git@github.com:")
             .trim_end_matches(".git")
             .split('/')
             .collect::<Vec<_>>();
@@ -139,7 +184,8 @@ pub fn owner_repo() -> Result<(String, String)> {
     }
 
     // If we are here... we have an HTTPS URL
-    let parts = remote_url.trim_start_matches("https://github.com/")
+    let parts = remote_url
+        .trim_start_matches("https://github.com/")
         .trim_end_matches(".git")
         .split("/")
         .collect::<Vec<_>>();
@@ -150,7 +196,6 @@ pub fn owner_repo() -> Result<(String, String)> {
 
     unreachable!("Invalid remote URL");
 }
-
 
 /// fetch with a specific refspec
 pub fn fetch(refspec: &str) -> Result<()> {
@@ -163,19 +208,16 @@ pub fn fetch(refspec: &str) -> Result<()> {
     if result.status.success() {
         return Ok(());
     }
-    
+
     // If we get here, the fetch failed, so let's return an error with details
     let stderr = String::from_utf8_lossy(&result.stderr);
     Err(anyhow!("Failed to fetch from remote: {}", stderr))
 }
 
-
 /// get the diff of the repo
 pub fn diff() -> Result<String> {
     let mut binding = Command::new("git");
-    let staged_results = binding
-        .arg("diff")
-        .arg("--cached");
+    let staged_results = binding.arg("diff").arg("--cached");
 
     // Check to see if the staged_results is empty
     if !staged_results.output()?.stdout.is_empty() {
@@ -186,13 +228,11 @@ pub fn diff() -> Result<String> {
     }
 
     // The staged_results is empty, so we need to get the unstaged_results
-    let unstaged_results = binding
-        .arg("diff");
+    let unstaged_results = binding.arg("diff");
 
     let output = unstaged_results.output()?;
     let stdout = String::from_utf8(output.stdout)?;
     Ok(stdout)
-    
 }
 
 /// get the commit log history for the current branch
@@ -204,19 +244,24 @@ pub fn commit_log() -> Result<String> {
         .arg("-n")
         .arg("20")
         .output()?;
-    
+
     if !output.status.success() {
-        return Err(anyhow!("Failed to get commit log: {}", 
-            String::from_utf8_lossy(&output.stderr)));
+        return Err(anyhow!(
+            "Failed to get commit log: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
     }
-    
+
     let stdout = String::from_utf8(output.stdout)?;
     Ok(stdout)
 }
 
 pub fn fetch_branch(branch_name: &str) -> Result<()> {
+    let remote = primary_remote()?;
     let output = Command::new("git")
-        .args(["fetch", "origin", branch_name])
+        .arg("fetch")
+        .arg(&remote)
+        .arg(branch_name)
         .output()?;
 
     if !output.status.success() {
@@ -224,4 +269,101 @@ pub fn fetch_branch(branch_name: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Perform a soft reset to a given ref (e.g., "abc123~1")
+pub fn reset_soft(target: &str) -> Result<()> {
+    let output = Command::new("git")
+        .arg("reset")
+        .arg("--soft")
+        .arg(target)
+        .output()?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!("Failed to soft reset: {}", String::from_utf8_lossy(&output.stderr)))
+    }
+}
+
+/// Pop the most recent stash entry (or a specific ref if provided)
+pub fn stash_pop(stash_ref: Option<&str>) -> Result<()> {
+    let mut cmd = Command::new("git");
+    cmd.arg("stash").arg("pop");
+    if let Some(s) = stash_ref {
+        cmd.arg(s);
+    }
+    let output = cmd.output()?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!("Failed to pop stash: {}", String::from_utf8_lossy(&output.stderr)))
+    }
+}
+
+/// Returns true if a merge is in progress (i.e., .git/MERGE_HEAD exists)
+pub fn is_merge_in_progress() -> Result<bool> {
+    let output = Command::new("git")
+        .arg("rev-parse")
+        .arg("-q")
+        .arg("--verify")
+        .arg("MERGE_HEAD")
+        .output()?;
+    Ok(output.status.success())
+}
+
+/// Aborts the current merge operation
+pub fn abort_merge() -> Result<()> {
+    let output = Command::new("git")
+        .arg("merge")
+        .arg("--abort")
+        .output()?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!("Failed to abort merge: {}", String::from_utf8_lossy(&output.stderr)))
+    }
+}
+
+/// Returns true if a rebase is in progress (i.e., .git/rebase-merge or .git/rebase-apply exists)
+pub fn is_rebase_in_progress() -> Result<bool> {
+    // We'll check both possible rebase states using git rev-parse
+    let merge_output = Command::new("git")
+        .arg("rev-parse")
+        .arg("-q")
+        .arg("--verify")
+        .arg("REBASE_HEAD")
+        .output()?;
+    Ok(merge_output.status.success())
+}
+
+/// Aborts the current rebase operation
+pub fn abort_rebase() -> Result<()> {
+    let output = Command::new("git")
+        .arg("rebase")
+        .arg("--abort")
+        .output()?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!("Failed to abort rebase: {}", String::from_utf8_lossy(&output.stderr)))
+    }
+}
+
+/// Returns the absolute path to the .git directory for the current repository
+pub fn git_home() -> Result<PathBuf> {
+    let output = Command::new("git")
+        .arg("rev-parse")
+        .arg("--git-dir")
+        .output()?;
+    if !output.status.success() {
+        return Err(anyhow!("Not a git repository: {}", String::from_utf8_lossy(&output.stderr)));
+    }
+    let git_dir = String::from_utf8(output.stdout)?.trim().to_string();
+    let path = Path::new(&git_dir);
+    let abs_path = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(path)
+    };
+    Ok(abs_path)
 }
