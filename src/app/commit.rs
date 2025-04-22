@@ -1,5 +1,5 @@
 use anyhow::Result;
-use crate::{ai, errors, git};
+use crate::{ai, errors, git, undo};
 use inquire::Confirm;
 
 #[derive(Default)]
@@ -62,6 +62,29 @@ pub async fn commit(opts: &CommitOptions) -> Result<()> {
 
     // We will now create the commit.
     git::commit::commit(&message, opts.empty)?;
+
+    // --- Undo/History Tracking ---
+    // Load history, record this operation, and save
+    let mut history = undo::service::History::load().unwrap_or_default();
+    let branch = git::branch::current().unwrap_or_default();
+    let files = status.changed_files();
+    let metadata = undo::OperationMetadata {
+        files,
+        branch: branch.clone(),
+        message: message.clone(),
+        extra: std::collections::HashMap::new(),
+        stashed: false, // TODO: Track if stash was used
+        stash_ref: String::new(),
+    };
+    history.record_operation(
+        undo::OperationType::Commit,
+        &format!("Commit on branch {}", branch),
+        "commit",
+        "commit",
+        metadata,
+    )?;
+    history.save()?;
+    // --- End Undo/History Tracking ---
 
     if opts.push {
         let current_branch = git::branch::current()?;

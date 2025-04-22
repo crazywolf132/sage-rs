@@ -1,4 +1,4 @@
-use crate::{errors, git};
+use crate::{errors, git, undo};
 use anyhow::{anyhow, Result};
 use crate::ui::ColorizeExt;
 
@@ -73,6 +73,25 @@ pub fn sync() -> Result<()> {
                 if let Err(err) = git::branch::push(&current_branch, false) {
                     println!("⚠️  Warning: Failed to push branch {}: {}", current_branch, err);
                 }
+                // --- Undo/History Tracking ---
+                let mut history = undo::service::History::load().unwrap_or_default();
+                let metadata = undo::OperationMetadata {
+                    files: Vec::new(),
+                    branch: current_branch.clone(),
+                    message: remote_default.clone(),
+                    extra: std::collections::HashMap::new(),
+                    stashed,
+                    stash_ref: String::new(),
+                };
+                history.record_operation(
+                    undo::OperationType::Rebase,
+                    &format!("Rebase branch {} onto {}", current_branch, remote_default),
+                    "sync",
+                    "rebase",
+                    metadata,
+                )?;
+                history.save()?;
+                // --- End Undo/History Tracking ---
             }
             Err(_) => {
                 println!("Rebase encountered conflicts, falling back to merge...");
@@ -83,6 +102,25 @@ pub fn sync() -> Result<()> {
                         if let Err(err) = git::branch::push(&current_branch, false) {
                             println!("⚠️  Warning: Failed to push branch {}: {}", current_branch, err);
                         }
+                        // --- Undo/History Tracking ---
+                        let mut history = undo::service::History::load().unwrap_or_default();
+                        let metadata = undo::OperationMetadata {
+                            files: Vec::new(),
+                            branch: current_branch.clone(),
+                            message: remote_default.clone(),
+                            extra: std::collections::HashMap::new(),
+                            stashed,
+                            stash_ref: String::new(),
+                        };
+                        history.record_operation(
+                            undo::OperationType::Merge,
+                            &format!("Merge branch {} into {}", remote_default, current_branch),
+                            "sync",
+                            "merge",
+                            metadata,
+                        )?;
+                        history.save()?;
+                        // --- End Undo/History Tracking ---
                     }
                     Err(_) => {
                         // Both rebase and merge failed - need manual intervention
@@ -99,19 +137,53 @@ pub fn sync() -> Result<()> {
             }
         }
     } else if behind {
-        // Branch is behind remote default - rebase onto it, then push
         println!("Branch is behind {}, updating...", default_branch.sage());
         // Try to rebase; on failure, attempt merge
         if let Err(err) = git::branch::rebase(&remote_default) {
             println!("⚠️  Warning: Rebase failed ({}); attempting merge...", err);
             if let Err(err2) = git::branch::merge(&remote_default) {
                 println!("⚠️  Warning: Merge also failed ({}). You may need to resolve conflicts manually.", err2);
+            } else {
+                // --- Undo/History Tracking ---
+                let mut history = undo::service::History::load().unwrap_or_default();
+                let metadata = undo::OperationMetadata {
+                    files: Vec::new(),
+                    branch: current_branch.clone(),
+                    message: remote_default.clone(),
+                    extra: std::collections::HashMap::new(),
+                    stashed,
+                    stash_ref: String::new(),
+                };
+                history.record_operation(
+                    undo::OperationType::Merge,
+                    &format!("Merge branch {} into {}", remote_default, current_branch),
+                    "sync",
+                    "merge",
+                    metadata,
+                )?;
+                history.save()?;
+                // --- End Undo/History Tracking ---
             }
-        }
-        // Push changes
-        println!("Updating complete, pushing changes...");
-        if let Err(err) = git::branch::push(&current_branch, false) {
-            println!("⚠️  Warning: Failed to push branch {}: {}", current_branch, err);
+        } else {
+            // --- Undo/History Tracking ---
+            let mut history = undo::service::History::load().unwrap_or_default();
+            let metadata = undo::OperationMetadata {
+                files: Vec::new(),
+                branch: current_branch.clone(),
+                message: remote_default.clone(),
+                extra: std::collections::HashMap::new(),
+                stashed,
+                stash_ref: String::new(),
+            };
+            history.record_operation(
+                undo::OperationType::Rebase,
+                &format!("Rebase branch {} onto {}", current_branch, remote_default),
+                "sync",
+                "rebase",
+                metadata,
+            )?;
+            history.save()?;
+            // --- End Undo/History Tracking ---
         }
     } else if ahead {
         // Branch has unique commits - push to remote
