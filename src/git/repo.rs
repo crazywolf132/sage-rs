@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow};
 use git2::Repository;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Determine the primary remote to use for fetching default branches.
@@ -19,6 +19,7 @@ pub fn primary_remote() -> Result<String> {
     }
     Ok("origin".to_string())
 }
+
 /// Compute ahead and behind counts between a local branch and a remote/default branch.
 /// Returns (ahead, behind) where:
 /// ahead  = commits present on local but not in remote
@@ -268,4 +269,101 @@ pub fn fetch_branch(branch_name: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Perform a soft reset to a given ref (e.g., "abc123~1")
+pub fn reset_soft(target: &str) -> Result<()> {
+    let output = Command::new("git")
+        .arg("reset")
+        .arg("--soft")
+        .arg(target)
+        .output()?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!("Failed to soft reset: {}", String::from_utf8_lossy(&output.stderr)))
+    }
+}
+
+/// Pop the most recent stash entry (or a specific ref if provided)
+pub fn stash_pop(stash_ref: Option<&str>) -> Result<()> {
+    let mut cmd = Command::new("git");
+    cmd.arg("stash").arg("pop");
+    if let Some(s) = stash_ref {
+        cmd.arg(s);
+    }
+    let output = cmd.output()?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!("Failed to pop stash: {}", String::from_utf8_lossy(&output.stderr)))
+    }
+}
+
+/// Returns true if a merge is in progress (i.e., .git/MERGE_HEAD exists)
+pub fn is_merge_in_progress() -> Result<bool> {
+    let output = Command::new("git")
+        .arg("rev-parse")
+        .arg("-q")
+        .arg("--verify")
+        .arg("MERGE_HEAD")
+        .output()?;
+    Ok(output.status.success())
+}
+
+/// Aborts the current merge operation
+pub fn abort_merge() -> Result<()> {
+    let output = Command::new("git")
+        .arg("merge")
+        .arg("--abort")
+        .output()?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!("Failed to abort merge: {}", String::from_utf8_lossy(&output.stderr)))
+    }
+}
+
+/// Returns true if a rebase is in progress (i.e., .git/rebase-merge or .git/rebase-apply exists)
+pub fn is_rebase_in_progress() -> Result<bool> {
+    // We'll check both possible rebase states using git rev-parse
+    let merge_output = Command::new("git")
+        .arg("rev-parse")
+        .arg("-q")
+        .arg("--verify")
+        .arg("REBASE_HEAD")
+        .output()?;
+    Ok(merge_output.status.success())
+}
+
+/// Aborts the current rebase operation
+pub fn abort_rebase() -> Result<()> {
+    let output = Command::new("git")
+        .arg("rebase")
+        .arg("--abort")
+        .output()?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!("Failed to abort rebase: {}", String::from_utf8_lossy(&output.stderr)))
+    }
+}
+
+/// Returns the absolute path to the .git directory for the current repository
+pub fn git_home() -> Result<PathBuf> {
+    let output = Command::new("git")
+        .arg("rev-parse")
+        .arg("--git-dir")
+        .output()?;
+    if !output.status.success() {
+        return Err(anyhow!("Not a git repository: {}", String::from_utf8_lossy(&output.stderr)));
+    }
+    let git_dir = String::from_utf8(output.stdout)?.trim().to_string();
+    let path = Path::new(&git_dir);
+    let abs_path = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(path)
+    };
+    Ok(abs_path)
 }

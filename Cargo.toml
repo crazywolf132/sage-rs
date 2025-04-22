@@ -16,6 +16,7 @@ openai-api-rs = "6.0.2"
 semver = "1.0"
 serde_json = "1.0"
 thiserror = "2.0.12"
+uuid = { version = "1.16.0", features = ["v7", "zerocopy"] }
 
 [dependencies.chrono]
 features = ["serde"]

@@ -113,3 +113,18 @@ pub fn pop_wip_commit() -> Result<()> {
 
     Ok(())
 }
+
+/// Returns the commit hash of HEAD
+pub fn hash() -> Result<String> {
+    let output = Command::new("git")
+        .arg("rev-parse")
+        .arg("HEAD")
+        .output()
+        .expect("Could not get commit hash");
+
+    if !output.status.success() {
+        return Err(anyhow!("Failed to get commit hash"));
+    }
+    let hash = String::from_utf8_lossy(&output.stdout);
+    Ok(hash.trim().to_string())
+}
