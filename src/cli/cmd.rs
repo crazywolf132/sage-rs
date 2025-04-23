@@ -10,6 +10,7 @@ use crate::cli::start;
 use crate::cli::status;
 use crate::cli::switch;
 use crate::cli::sync;
+use crate::cli::nuke;
 
 use clap::Parser;
 
@@ -269,6 +270,13 @@ EXAMPLES:
   sage sync"
     )]
     Sync(sync::SyncArgs),
+
+    /// Nuke the working directory, discarding all changes and untracked files
+    #[clap(
+        long_about = "Forces a hard reset of the working directory and removes untracked files.",
+        alias = "n"
+    )]
+    Nuke(nuke::NukeArgs),
 
     /// Cleans up all dead branches
     Clean(clean::CleanArgs),

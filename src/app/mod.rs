@@ -8,5 +8,6 @@ pub mod start;
 pub mod status;
 pub mod switch;
 pub mod sync;
+pub mod nuke;
 pub mod clean;
 pub mod history;
