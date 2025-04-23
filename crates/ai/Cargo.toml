@@ -1,0 +1,18 @@
+[package]
+name = "sage-ai"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["local"]
+# `local` => Ollama / llama-cpp
+# `cloud` => OpenAI or other hosted LLMs
+local = ["dep:ollama-rs"]
+cloud = ["dep:openai-rs", "reqwest"]
+
+[dependencies]
+anyhow = { workspace = true }
+serde = { workspace = true }
+ollama-rs = { workspace = true, optional = true }
+openai-rs = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }

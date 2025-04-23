@@ -1,0 +1,10 @@
+[package]
+name = "sage-stack"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+sage-core = { path = "../core" }
+sage-git = { path = "../git" }
+anyhow = { workspace = true }
+tracing = { workspace = true }

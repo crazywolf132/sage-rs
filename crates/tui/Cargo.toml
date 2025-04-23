@@ -1,0 +1,10 @@
+[package]
+name = "sage-tui"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ratatui = { workspace = true }
+crossterm = "0.29"
+owo-colors = { workspace = true }
+tracing = { workspace = true }

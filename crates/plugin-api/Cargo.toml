@@ -1,0 +1,20 @@
+########################################
+# sage-plugin-api – Cargo manifest
+########################################
+[package]
+name = "sage-plugin-api"
+version = "0.1.0"
+edition = "2024"
+readme = "../../README.md"
+description = "Stable ABI (WASI + Deno) for extending Sage with plugins"
+
+########################################
+# Shared crates (versions come from workspace)
+########################################
+[dependencies]
+serde = { workspace = true, features = ["derive"]}
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+extism = "1.10.0"

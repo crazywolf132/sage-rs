@@ -1,0 +1,11 @@
+[package]
+name = "sage-telemetry"
+version = "0.1.0"
+edition = "2024"
+readme = "../../README.md"
+description = "Telemetry and analytics for Sage."
+authors = ["crazywolf132 <crazywolf132@gmail.com>"]
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { workspace = true }

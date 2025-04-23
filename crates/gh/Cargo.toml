@@ -1,0 +1,12 @@
+[package]
+name = "sage-gh"
+version = "0.1.0"
+edition = "2024"
+readme = "../../README.md"
+description = "GitHub integration for Sage."
+authors = ["crazywolf132 <crazywolf132@gmail.com>"]
+
+[dependencies]
+anyhow = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }

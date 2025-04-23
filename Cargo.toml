@@ -1,56 +1,43 @@
-[[bin]]
-name = "sage"
-path = "src/main.rs"
+########################################
+#  sage workspace – root Cargo.toml
+########################################
 
-[dependencies]
-anyhow = "1.0.96"
-auth-git2 = "0.5.7"
-clap_complete = "4.5.46"
-colored = "3.0.0"
-dirs = "6.0"
-git2 = "0.20.0"
-hashbrown = "0.15.2"
-octocrab = "0.44.0"
-once_cell = "1.19"
-openai-api-rs = "6.0.2"
-semver = "1.0"
-serde_json = "1.0"
-thiserror = "2.0.12"
-
-[dependencies.chrono]
-features = ["serde"]
-version = "0.4"
-
-[dependencies.clap]
-features = [
-    "color",
-    "derive",
+[workspace]
+resolver = "3"
+members = [
+  "crates/*",  # core, git, ai, stack, tui, …
+  "bins/*",    # sage-cli, sage-tui
+  "xtask",     # automation tasks
 ]
-version = "4.5.31"
 
-[dependencies.inquire]
-features = ["editor"]
-version = "0.7.0"
+# Optionally choose which crate `cargo` commands
+# (run/test/etc.) default to when no `-p` given.
+default-members = ["bins/sage-cli"]
 
-[dependencies.serde]
-features = ["derive"]
-version = "1.0"
+# If your plugins build WASM artefacts into `target-gen/`,
+# exclude them so `cargo` doesn’t treat them as crates.
+# exclude = ["plugins/*/target-gen"]
 
-[dependencies.tokio]
-features = ["full"]
-version = "1.36"
-
-[dev-dependencies]
-mockall = "0.13.1"
-
-[lib]
-name = "sage"
-path = "src/lib.rs"
-
-[package]
-authors = ["Brayden Moon"]
-description = "A Git companion tool with AI capabilities"
-edition = "2024"
-name = "sage"
-readme = "README.md"
-version = "0.4.1"
+# ───────────────────────────────────────
+# Shared dependency versions
+# Any workspace crate can now say `serde = { workspace = true }`
+# and it will pull the exact version declared here.
+[workspace.dependencies]
+anyhow = "1.0"
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+tracing = { version = "0.1", features = ["log"] }
+serde_json = "1.0.140"
+owo-colors = "4"
+openai-rs = "0.1"
+ollama-rs = "0.3"
+ratatui = "0.29"
+reqwest = "0.12"
+tokio = { version = "1.37", features = ["full"], default-features = false }
+# ───────────────────────────────────────
+# Compilation profiles
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
