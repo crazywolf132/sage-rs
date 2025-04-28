@@ -16,22 +16,22 @@ This directory contains example plugins for Sage.
 
 See the [Plugin API documentation](../crates/plugin-api/README.md) for details on how to create your own plugins.
 
-## Building Plugins
+## Building and Installing Plugins
 
-### Building Rust Plugins
+### Building All Plugins
 
-You can build the Rust plugins using the provided build script:
+You can build all plugins (Rust and TypeScript) using the provided build script:
 
 ```bash
 cd plugins
-./build-rust.sh
+./build-all.sh
 ```
 
-This will build all Rust plugins and install them to `~/.config/sage/plugins/`.
+This will build all plugins and install them to `~/.config/sage/plugins/`.
 
 ### Installing JavaScript Plugins
 
-You can install the JavaScript plugins using the provided script:
+If you only want to install the JavaScript plugins without building TypeScript plugins, you can use:
 
 ```bash
 cd plugins
