@@ -1,0 +1,9 @@
+{
+  "name": "branch-validator",
+  "version": "0.1.0",
+  "description": "A Sage plugin to validate branch naming conventions",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo 'JavaScript plugins do not need to be built. Copy index.js to ~/.config/sage/plugins/branch-validator.js'"
+  }
+}

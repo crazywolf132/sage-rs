@@ -1,0 +1,9 @@
+{
+  "name": "git-stats",
+  "version": "0.1.0",
+  "description": "A Sage plugin to show git repository statistics",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo 'JavaScript plugins do not need to be built. Copy index.js to ~/.config/sage/plugins/git-stats.js'"
+  }
+}

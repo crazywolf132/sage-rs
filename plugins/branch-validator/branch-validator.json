@@ -1,0 +1,5 @@
+{
+  "name": "branch-validator",
+  "version": "0.1.0",
+  "functions": ["pre_push", "run"]
+}

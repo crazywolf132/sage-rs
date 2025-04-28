@@ -1,0 +1,5 @@
+{
+  "name": "git-stats",
+  "version": "0.1.0",
+  "functions": ["run"]
+}

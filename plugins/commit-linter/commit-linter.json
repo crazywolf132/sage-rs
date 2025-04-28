@@ -1,0 +1,5 @@
+{
+  "name": "commit-linter",
+  "version": "0.1.0",
+  "functions": ["post_commit", "run"]
+}
