@@ -5,9 +5,9 @@
 [workspace]
 resolver = "3"
 members = [
-  "crates/*",  # core, git, ai, stack, tui, …
-  "bins/*",    # sage-cli, sage-tui
-  "xtask",     # automation tasks
+  "crates/*", # core, git, ai, stack, tui, …
+  "bins/*",   # sage-cli, sage-tui
+  "xtask",    # automation tasks
 ]
 
 # Optionally choose which crate `cargo` commands
@@ -16,7 +16,7 @@ default-members = ["bins/sage-cli"]
 
 # If your plugins build WASM artefacts into `target-gen/`,
 # exclude them so `cargo` doesn’t treat them as crates.
-# exclude = ["plugins/*/target-gen"]
+exclude = ["plugins/*"]
 
 # ───────────────────────────────────────
 # Shared dependency versions
@@ -34,6 +34,7 @@ ollama-rs = "0.3"
 ratatui = "0.29"
 reqwest = "0.12"
 tokio = { version = "1.37", features = ["full"], default-features = false }
+chrono = { version = "0.4", features = ["now", "serde"] }
 # ───────────────────────────────────────
 # Compilation profiles
 [profile.release]

@@ -1,4 +1,27 @@
+# Rust build artifacts
 /target
+**/target/
 /vendor
 .idea/
 .DS_Store
+
+# Plugin system
+**/*.wasm
+**/node_modules/
+**/.pnpm-store/
+**/dist/
+**/.turbo/
+**/.next/
+**/.swc/
+**/.cache/
+
+# TypeScript/JavaScript specific
+**/.npm
+**/.eslintcache
+**/.node_repl_history
+**/.yarn-integrity
+**/.env
+**/.env.local
+**/.env.development.local
+**/.env.test.local
+**/.env.production.local
