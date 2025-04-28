@@ -8,3 +8,4 @@ sage-core = { path = "../core" }
 sage-git = { path = "../git" }
 anyhow = { workspace = true }
 tracing = { workspace = true }
+serde = {workspace = true, features = ["derive"]}
