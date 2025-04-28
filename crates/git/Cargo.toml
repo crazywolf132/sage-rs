@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 thiserror = { workspace = true }
+chrono = { workspace = true }
+sage-core = { path = "../core" }
