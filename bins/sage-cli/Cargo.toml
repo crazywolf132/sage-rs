@@ -20,13 +20,15 @@ minimal = []
 server = ["ai", "stack"]
 
 [dependencies]
+anyhow = { workspace = true }
 clap = { version = "4.5", features = ["derive"] }
 owo-colors = { workspace = true }
 tracing = { workspace = true }
 sage-core = { path = "../../crates/core" }
-sage-git = { path = "../../crates/git", default-features = false }
+sage-git = { path = "../../crates/git", default-features = true }
 sage-stack = { path = "../../crates/stack", optional = true }
 sage-ai = { path = "../../crates/ai", optional = true }
 sage-tui = { path = "../../crates/tui", optional = true }
 sage-telemetry = { path = "../../crates/telemetry", optional = true }
-serde_json = "1.0.140"
+sage-plugin-api = {path = "../../crates/plugin-api"}
+serde_json = { workspace = true }
