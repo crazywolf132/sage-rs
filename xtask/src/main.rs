@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 use xshell::{cmd, Shell};
 
@@ -36,7 +36,7 @@ enum Cmd {
 }
 
 fn main() -> Result<()> {
-    let xtask = Xtask::prase();
+    let xtask = Xtask::parse();
     let sh = Shell::new()?;
     match xtask.command {
         Cmd::Ci => ci(&sh)?,
