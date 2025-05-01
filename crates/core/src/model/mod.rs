@@ -1,24 +1,24 @@
 //! Pure data types (value objects) - no methods that touch the OS.
 
+pub mod branch;
 pub mod commit;
 pub mod commit_id;
-pub mod branch;
 pub mod commit_message;
+pub mod config;
 pub mod diff_stats;
 pub mod git_action;
+pub mod merge;
 pub mod undo;
-pub mod stack_graph;
-pub mod config;
 
+pub use branch::BranchName;
 pub use commit::Commit;
 pub use commit_id::CommitId;
-pub use branch::BranchName;
 pub use commit_message::CommitMessage;
+pub use config::StackConfig;
 pub use diff_stats::DiffStats;
 pub use git_action::GitAction;
-pub use undo::{UndoOp, UndoLedger};
-pub use stack_graph::{StackGraph, MergeResult};
-pub use config::StackConfig;
+pub use merge::*;
+pub use undo::{UndoLedger, UndoOp};
 
 /// Enum returned by linter when messages aren't Conventional.
 #[derive(Debug)]

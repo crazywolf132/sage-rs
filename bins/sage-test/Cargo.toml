@@ -1,0 +1,8 @@
+[package]
+name = "sage-test"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow.workspace = true
+crossterm = "0.29.0"

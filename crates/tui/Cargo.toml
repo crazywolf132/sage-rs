@@ -1,10 +1,30 @@
 [package]
 name = "sage-tui"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "🌿 A simple, ergonomic TUI framework for Rust with three API levels for developers of all skill levels."
+repository = "https://github.com/crazywolf132/sage-rs"
+authors = ["Brayden Moon <crazywolf132@gmail.com>"]
+readme = "README.md"
+keywords = ["tui", "terminal", "ui", "crossterm", "interface"]
+categories = ["command-line-interface", "command-line-utilities"]
 
+# Core dependencies
 [dependencies]
-ratatui = { workspace = true }
+# For the simple API
 crossterm = "0.29"
-owo-colors = { workspace = true }
-tracing = { workspace = true }
+
+# For the simplified API
+async-channel = "2"
+futures = "0.3"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+
+# For the full API
+async-trait = "0.1"
+bitflags = "2.4"
+eyre = "0.6"
+sage-tui-derive = { path = "derive", version = "0.1.0" }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

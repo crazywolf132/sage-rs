@@ -4,5 +4,7 @@ pub use runtime::Runtime;
 /** Commands */
 pub mod child;
 pub use child::Child;
+pub mod work;
+pub use work::Work;
 pub mod plugin;
 pub use plugin::Plugin;
